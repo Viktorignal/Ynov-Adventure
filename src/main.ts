@@ -12,7 +12,7 @@ WA.onInit().then(() => {
     console.log('Player tags: ',WA.player.tags)
 
 // Close the chat 
-    WA.chat.close(): void
+    WA.chat.close(): void ;
   // Nour code Afficher "Bonjour" dès le lancement
     WA.ui.openPopup("bonjourPopup", "Bonjour 👋", []);
     
