@@ -7,7 +7,7 @@ console.log('Script started successfully');
 let currentPopup: any = undefined;
 
 //code pour ui button
-WA.ui.website.open(website: CreateUIWebsiteEvent): Promise<UIWebsite>
+WA.ui.website.open(website: CreateUIWebsiteEvent): Promise<UIWebsite>;
 
 interface CreateUIWebsiteEvent {
     url: string,            // Website URL
@@ -57,7 +57,7 @@ interface UIWebsite {
 // Waiting for the API to be ready
 WA.onInit().then(() => {
     console.log('Scripting API ready');
-    console.log('Player tags: ',WA.player.tags)
+    console.log('Player tags: ',WA.player.tags);
 
 // call code
 const myWebsite = await WA.ui.website.open({
@@ -78,7 +78,7 @@ myWebsite.position.vertical = "top";
         const today = new Date();
         const time = today.getHours() + ":" + today.getMinutes();
         currentPopup = WA.ui.openPopup("clockPopup", "It's " + time, []);
-    })
+    });
 
     WA.room.area.onLeave('clock').subscribe(closePopup)
 
