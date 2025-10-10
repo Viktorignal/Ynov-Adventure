@@ -11,6 +11,10 @@ WA.onInit().then(() => {
     console.log('Scripting API ready');
     console.log('Player tags: ',WA.player.tags)
 
+
+  // Nour code Afficher "Bonjour" dès le lancement
+    WA.ui.openPopup("bonjourPopup", "Bonjour 👋", []);
+    
     WA.room.area.onEnter('clock').subscribe(() => {
         const today = new Date();
         const time = today.getHours() + ":" + today.getMinutes();
