@@ -51,6 +51,8 @@ interface UIWebsite {
     };
     close(): Promise<void>;
 }
+void CreateUIWebsiteEvent;
+void UIWebsite;
 
 // ✅ Attente que l’API soit prête
 WA.onInit().then(async () => {
