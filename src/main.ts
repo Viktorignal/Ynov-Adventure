@@ -22,15 +22,15 @@ WA.onInit().then(() => {
 
     // --- Ton nouveau bouton dans l'action bar ---
     WA.ui.actionBar.addButton({
-        id: 'icon-btn',
-        imageSrc: './tilesets/BTN%20Candidater.png', // exemple
-        toolTip: 'Candidater',
-        callback: () => {
-            console.log('Bouton cliqué !');
-            window.open('https://www.ynov.com', '_blank'); // ton lien ici
-            // Si tu veux qu’il reste, ne le retire pas :
-            // WA.ui.actionBar.removeButton('icon-btn');
-        }
+      type: 'action',
+      id: 'btn-candidater',
+      label: 'Candidater',
+      imageSrc: './tilesets/BTN%20Candidater.png',
+      toolTip: 'Candidater sur le site',
+      bgColor: '#0d6efd',     // facultatif
+      textColor: '#ffffff',   // facultatif
+      isGradient: true,       // facultatif
+      clickCallback: () => window.open('https://www.ynov.com/candidater', '_blank'),
     });
 
     // --- Initialisation des extensions ---
