@@ -85,8 +85,8 @@ function addCandidaterButton(imageSrc: string, url: string) {
       // rien
     }
 
-    // --- Dernier recours : bouton HTML fixé (décommente pour l’activer) ---
-    /*
+     --- Dernier recours : bouton HTML fixé (décommente pour l’activer) ---
+    *
     const btn = document.createElement('button');
     btn.innerText = 'Candidater';
     btn.style.position = 'fixed';
