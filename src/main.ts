@@ -6,74 +6,12 @@ console.log('Script started successfully');
 
 let currentPopup: any = undefined;
 
-// ✅ Définition correcte des interfaces
-
-interface CreateUIWebsiteEvent {
-    url: string;            // Website URL
-    visible?: boolean;      // The website is visible or not
-    allowApi?: boolean;     // Allow scripting API on the website
-    allowPolicy?: string;   // The list of feature policies allowed
-    position: {
-        vertical: "top" | "middle" | "bottom";
-        horizontal: "left" | "middle" | "right";
-    };
-    size: {                 // Size on the UI
-        height: string;
-        width: string;
-    };
-    margin?: {              // Website margin
-        top?: string;
-        bottom?: string;
-        left?: string;
-        right?: string;
-    };
-}
-
-interface UIWebsite {
-    readonly id: string;            // Unique ID
-    url: string;                    // Website URL
-    visible: boolean;               // The website is visible or not
-    readonly allowApi: boolean;     // Allow scripting API on the website
-    readonly allowPolicy: string;   // The list of feature policies allowed
-    position: {
-        vertical: string;           // Vertical position (top, middle, bottom)
-        horizontal: string;         // Horizontal position (left, middle, right)
-    };
-    size: {
-        height: string;
-        width: string;
-    };
-    margin?: {
-        top?: string;
-        bottom?: string;
-        left?: string;
-        right?: string;
-    };
-    close(): Promise<void>;
-}
-void CreateUIWebsiteEvent;
-void UIWebsite;
-
-// ✅ Attente que l’API soit prête
-WA.onInit().then(async () => {
+// Waiting for the API to be ready
+WA.onInit().then(() => {
     console.log('Scripting API ready');
-    console.log('Player tags:', WA.player.tags);
+    console.log('Player tags: ', WA.player.tags);
 
-    // ✅ Appel correct à WA.ui.website.open
-    const myWebsite = await WA.ui.website.open({
-        url: "https://wikipedia.org",
-        position: {
-            vertical: "middle",
-            horizontal: "middle",
-        },
-        size: {
-            height: "50vh",
-            width: "50vw",
-        },
-    });
-
-    myWebsite.position.vertical = "top";
-
+    // --- Zone "clock" (déjà existante) ---
     WA.room.area.onEnter('clock').subscribe(() => {
         const today = new Date();
         const time = today.getHours() + ":" + today.getMinutes();
@@ -82,16 +20,26 @@ WA.onInit().then(async () => {
 
     WA.room.area.onLeave('clock').subscribe(closePopup);
 
-    // ✅ Initialisation du module extra
-    bootstrapExtra()
-        .then(() => {
-            console.log('Scripting API Extra ready');
-        })
-        .catch(e => console.error(e));
+    // --- Ton nouveau bouton dans l'action bar ---
+    WA.ui.actionBar.addButton({
+        id: 'icon-btn',
+        imageSrc: './tilesets/BTN%20Candidater.png', // exemple
+        toolTip: 'Candidater',
+        callback: () => {
+            console.log('Bouton cliqué !');
+            window.open('https://www.ynov.com', '_blank'); // ton lien ici
+            // Si tu veux qu’il reste, ne le retire pas :
+            // WA.ui.actionBar.removeButton('icon-btn');
+        }
+    });
+
+    // --- Initialisation des extensions ---
+    bootstrapExtra().then(() => {
+        console.log('Scripting API Extra ready');
+    }).catch(e => console.error(e));
 
 }).catch(e => console.error(e));
 
-// ✅ Fonction de fermeture popup
 function closePopup() {
     if (currentPopup !== undefined) {
         currentPopup.close();
