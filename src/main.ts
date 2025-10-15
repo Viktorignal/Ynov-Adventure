@@ -19,23 +19,32 @@ WA.onInit().then(() => {
   });
   WA.room.area.onLeave('clock').subscribe(closePopup);
 
-  // --- Bouton "Candidater" dans l'action bar (icône seule) ---
-  const imagePath = './tilesets/BTN%20Candidater.png';   // <-- espace encodé
+  // --- Bouton "Candidater" dans la barre d'action (icône seule) ---
+  const imagePath = './tilesets/BTN%20Candidater.png'; // espace encodé !
   const targetUrl = 'https://www.ynov.com/candidater';
 
-  // Version compatible avec tes typings (type 'classic' + callback)
-  WA.ui.actionBar.addButton({
-    type: 'classic',
-    id: 'btn-candidater',
-    label: '',                   // vide = icône seule, plus compact
-    imageSrc: imagePath,
-    toolTip: 'Candidater',
-    callback: () => {
-      window.open(targetUrl, '_blank');
-    }
-  });
+  // On contourne les variations de typings avec un cast "any"
+  try {
+    (WA.ui as any).actionBar.addButton({
+      id: 'btn-candidater',
+      // pas de label -> icône seule (plus compact, reste visible hors burger)
+      imageSrc: imagePath,
+      toolTip: 'Candidater',
+      // selon ta version, c'est "callback" OU "clickCallback".
+      // On fournit les deux, l'API ignorera la propriété inconnue.
+      callback: () => window.open(targetUrl, '_blank'),
+      clickCallback: () => window.open(targetUrl, '_blank'),
+    });
+    console.log('Action bar button added.');
+  } catch (e) {
+    console.error('Action bar API not available, falling back to menu.', e);
+    // Fallback menu si vraiment nécessaire
+    WA.ui.registerMenuCommand('Candidater', {
+      callback: () => window.open(targetUrl, '_blank'),
+    });
+  }
 
-  // --- Scripting API Extra (facultatif) ---
+  // --- Extensions optionnelles ---
   bootstrapExtra()
     .then(() => console.log('Scripting API Extra ready'))
     .catch(e => console.error(e));
