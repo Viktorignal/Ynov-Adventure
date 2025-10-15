@@ -25,6 +25,13 @@ WA.onInit().then(() => {
     callback: () => {
         window.open('https://www.ynov.com/candidater', '_blank');
     }
+          // TEST VISUEL : pop-up + message de chat
+  const pop = WA.ui.openPopup('hello', '✅ Script chargé !', [{
+    label: 'OK',
+    callback: () => pop.close()
+  }]);
+
+  WA.chat.sendChatMessage('Le script a bien démarré ✅', 'Système');
 });
 
     // --- Initialisation des extensions ---
