@@ -28,7 +28,7 @@ WA.onInit().then(() => {
   // ------------------------------------------
   // BOUTON FIXE "Candidater" (toujours visible)
   // ------------------------------------------
-  const imagePath = './tilesets/BTN%20Candidater.png'; // attention à l’espace encodé
+  const imagePath = '../tilesets/BTN%20Candidater.png'; // attention à l’espace encodé
   const targetUrl = 'https://www.ynov.com/candidater';
 
   // Crée le bouton
