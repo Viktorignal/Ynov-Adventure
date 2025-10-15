@@ -21,13 +21,11 @@ WA.onInit().then(() => {
     WA.room.area.onLeave('clock').subscribe(closePopup);
 
     // --- Ton nouveau bouton dans l'action bar ---
-    WA.ui.actionBar.addButton({
-      id: 'btn-candidater',
-      label: 'Candidater',
-      imageSrc: './tilesets/BTN%20Candidater.png',
-      toolTip: 'Candidater sur le site',
-      callback: () => window.open('https://www.ynov.com/candidater', '_blank'),
-    });
+    WA.ui.registerMenuCommand('Candidater', {
+    callback: () => {
+        window.open('https://www.ynov.com/candidater', '_blank');
+    }
+});
 
     // --- Initialisation des extensions ---
     bootstrapExtra().then(() => {
