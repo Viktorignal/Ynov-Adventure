@@ -25,22 +25,36 @@ WA.onInit().then(() => {
     (WA.ui as any).actionBar.addButton({
         id: 'candidater-btn',
         label: 'Candidater',
-        bgColor: '#edb911',       // couleur dorée
-        isGradient: true,         // effet dégradé
-        callback: () => {
+        bgColor: '#edb911',
+        isGradient: true,
+        callback: async () => {
             console.log('Bouton Candidater cliqué');
-            window.open('https://www.ynov.com/candidature', '_blank');
+            await WA.ui.website.open({
+                url: "https://www.ynov.com/candidature",
+                position: { vertical: "middle", horizontal: "right" },
+                size: { width: "45vw", height: "90vh" },
+                margin: { right: "2vw" },
+                allowApi: false
+            });
         },
-        clickCallback: () => {
+        clickCallback: async () => {
             console.log('Bouton Candidater cliqué');
-            window.open('https://www.ynov.com/candidature', '_blank');
+            await WA.ui.website.open({
+                url: "https://www.ynov.com/candidature",
+                position: { vertical: "middle", horizontal: "right" },
+                size: { width: "45vw", height: "90vh" },
+                margin: { right: "2vw" },
+                allowApi: false
+            });
         }
     });
     // ------------------------------------------------------
 
-    // Initialisation des fonctionnalités "extra"
+    // The line below bootstraps the Scripting API Extra library that adds a number of advanced properties/features to WorkAdventure
     bootstrapExtra()
-        .then(() => console.log('Scripting API Extra ready'))
+        .then(() => {
+            console.log('Scripting API Extra ready');
+        })
         .catch(e => console.error(e));
 
 }).catch(e => console.error(e));
