@@ -36,12 +36,10 @@ WA.onInit()
     });
     WA.room.area.onLeave("clock").subscribe(closePopup);
 
-    // === Bouton Candidater (ouvre juste un nouvel onglet) ===
+    // === Bouton Candidater (ouvre un nouvel onglet, pas d'iframe) ===
     WA.ui.actionBar.addButton({
       id: "candidater-btn",
       label: "Candidater",
-      bgColor: "#edb911",
-      isGradient: true,
       callback: () => {
         window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
       },
@@ -51,17 +49,15 @@ WA.onInit()
     WA.ui.actionBar.addButton({
       id: "teleport-btn",
       label: "Téléportation",
-      tooltip: "Aller à une autre zone",
-      bgColor: "#0ea5e9",
-      isGradient: true,
       callback: async () => {
         if (panelOuvert) {
-          await WA.ui.website.close("teleport-panel");
+          // ta version n'accepte pas d'argument ici
+          await WA.ui.website.close();
           panelOuvert = false;
           return;
         }
 
-        // Petit menu déroulant créé à la volée (pas de fichier externe)
+        // Petit menu déroulant créé à la volée (data URL, aucun fichier externe)
         const html = `
         <html>
           <body style="margin:0;font-family:sans-serif;background:#fff8;border-radius:10px;padding:10px">
@@ -79,12 +75,11 @@ WA.onInit()
               };
             </script>
           </body>
-        </html>`;
+        </html>`.trim();
 
         const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
 
         await WA.ui.website.open({
-          id: "teleport-panel",
           url: dataUrl,
           allowApi: true,
           position: { vertical: "top", horizontal: "left" },
