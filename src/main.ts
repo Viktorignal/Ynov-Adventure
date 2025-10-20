@@ -1,32 +1,28 @@
-/// <reference types="@workadventure/iframe-api-typings" />
+// ===== WorkAdventure plain JS bootstrap (aucun import) =====
+(function () {
+  const log = (...a) => console.log('[WA]', ...a);
+  const warn = (...a) => console.warn('[WA]', ...a);
+  const err = (...a) => console.error('[WA]', ...a);
 
-import { bootstrapExtra } from "@workadventure/scripting-api-extra";
+  log('Script file loaded');
 
-declare const WA: any;
+  // ---- Config Téléportation ----
+  const MAP_URL_PATH = '/@/ynov-1733302243/ynov_adventure/new-map'; // chemin WA vers ta map
+  const TP_ENTRIES = [
+    { id: '#TPA-IA',     label: 'IA' },
+    { id: '#TPAINFO',    label: 'Informatique' },
+    { id: '#TPACYBER',   label: 'Cybersécurité' },
+    { id: '#TPAARCHI',   label: 'Architecture' },
+    { id: '#TPABIM',     label: 'Bâtiment Numérique' },
+    { id: '#TPAAUDIO',   label: 'Audiovisuel' },
+    { id: '#TPADIGITAL', label: 'DIGITAL IA' },
+    { id: '#TPA3D',      label: '3D' },
+    { id: '#TPAHUB',     label: 'Accueil' },
+  ];
+  let tpPanelOpen = false;
 
-console.log('[WA] Script file loaded');
-
-let currentPopup: any = undefined;
-
-/* =========================
-   Téléportation - CONFIG
-   ========================= */
-const MAP_URL_PATH = '/@/ynov-1733302243/ynov_adventure/new-map'; // chemin relatif vers ta map
-const TP_ENTRIES = [
-  { id: '#TPA-IA',     label: 'IA' },
-  { id: '#TPAINFO',    label: 'Informatique' },
-  { id: '#TPACYBER',   label: 'Cybersécurité' },
-  { id: '#TPAARCHI',   label: 'Architecture' },
-  { id: '#TPABIM',     label: 'Bâtiment Numérique' },
-  { id: '#TPAAUDIO',   label: 'Audiovisuel' },
-  { id: '#TPADIGITAL', label: 'DIGITAL IA' },
-  { id: '#TPA3D',      label: '3D' },
-  { id: '#TPAHUB',     label: 'Accueil' },
-];
-let tpPanelOpen = false;
-
-/* UI embarquée en data URL (pas de fichier externe, pas de 404) */
-const TELEPORT_HTML = `
+  // UI de téléportation embarquée (aucun fichier externe => pas de 404)
+  const TELEPORT_HTML = (`
 <!doctype html>
 <html>
 <head>
@@ -53,176 +49,168 @@ const TELEPORT_HTML = `
     <div class="hint">Clique de nouveau sur le bouton « Téléportation » pour fermer ce menu.</div>
   </div>
 
-  <script type="module">
+  <script>
     const select = document.getElementById('zone');
     const btn = document.getElementById('go');
-
     let ENTRIES = [];
     let MAP_URL = '';
 
     window.addEventListener('message', (e) => {
       const data = e.data;
-      if (data?.type === 'tp-init') {
+      if (data && data.type === 'tp-init') {
         ENTRIES = Array.isArray(data.entries) ? data.entries : [];
         MAP_URL = data.mapUrl || '';
-        fillOptions();
+        select.innerHTML = '';
+        ENTRIES.forEach(e => {
+          const opt = document.createElement('option');
+          opt.value = e.id;
+          opt.textContent = e.label || e.id;
+          select.appendChild(opt);
+        });
       }
     });
 
-    function fillOptions() {
-      select.innerHTML = '';
-      ENTRIES.forEach(e => {
-        const opt = document.createElement('option');
-        opt.value = e.id;
-        opt.textContent = e.label || e.id;
-        select.appendChild(opt);
-      });
-    }
-
     function teleport() {
-      const entry = select.value?.trim();
+      const entry = (select.value || '').trim();
       if (!entry) return;
       parent.postMessage({ type: 'tp-go', entry }, '*');
     }
-
     btn.addEventListener('click', teleport);
     select.addEventListener('keydown', (e) => { if (e.key === 'Enter') teleport(); });
   </script>
 </body>
 </html>
-`.trim();
+  `).trim();
+  const TELEPORT_DATA_URL = 'data:text/html;charset=utf-8,' + encodeURIComponent(TELEPORT_HTML);
 
-const TELEPORT_DATA_URL = 'data:text/html;charset=utf-8,' + encodeURIComponent(TELEPORT_HTML);
-/* ========================= */
+  // Sécurité : si WA n’est pas prêt, on attend
+  const waitWA = () => new Promise((resolve) => {
+    if (window.WA && WA.onInit) return resolve();
+    const i = setInterval(() => {
+      if (window.WA && WA.onInit) {
+        clearInterval(i);
+        resolve();
+      }
+    }, 50);
+  });
 
-WA.onInit().then(async () => {
-  console.log('[WA] onInit OK');
-  try {
-    await bootstrapExtra();
-    console.log('[WA] bootstrapExtra OK');
-  } catch (e) {
-    console.warn('[WA] bootstrapExtra error (non bloquant):', e);
-  }
+  waitWA().then(() => {
+    return WA.onInit();
+  }).then(() => {
+    log('onInit OK');
 
-  // --- Popup heure sur la zone "clock" (existant) ---
-  try {
-    WA.room.area.onEnter('clock').subscribe(() => {
-      const today = new Date();
-      const pad = (n: number) => n.toString().padStart(2, '0');
-      const time = `${pad(today.getHours())}:${pad(today.getMinutes())}`;
-      currentPopup = WA.ui.openPopup('clockPopup', "It's " + time, []);
-    });
-    WA.room.area.onLeave('clock').subscribe(closePopup);
-  } catch (e) {
-    console.warn('[WA] clock popup init error:', e);
-  }
-
-  // --- Bouton "Candidater" — uniquement nouvel onglet (pas d'iframe) ---
-  try {
-    const candidCb = () => openCandidatureInNewTab();
-    WA.ui.actionBar.addButton?.({
-      id: 'candidater-btn',
-      label: 'Candidater',
-      bgColor: '#edb911',
-      isGradient: true,
-      callback: candidCb,
-      clickCallback: candidCb,
-    }) || WA.ui.actionBar.addButton({
-      id: 'candidater-btn',
-      label: 'Candidater',
-      callback: candidCb
-    });
-    console.log('[WA] Candidater button added');
-  } catch (e) {
-    console.error('[WA] Failed to add "Candidater" button:', e);
-  }
-
-  // --- Bouton "Téléportation" (ouvre/ferme le menu) ---
-  try {
-    const tpCb = () => toggleTeleportPanel();
-    WA.ui.actionBar.addButton?.({
-      id: 'tp-menu',
-      label: 'Téléportation',
-      tooltip: 'Ouvrir/fermer le menu de téléportation',
-      bgColor: '#0ea5e9',
-      isGradient: true,
-      callback: tpCb,
-      clickCallback: tpCb,
-    }) || WA.ui.actionBar.addButton({
-      id: 'tp-menu',
-      label: 'Téléportation',
-      callback: tpCb
-    });
-    console.log('[WA] Téléportation button added');
-  } catch (e) {
-    console.error('[WA] Failed to add "Téléportation" button:', e);
-  }
-}).catch((e: any) => console.error('[WA] onInit error:', e));
-
-/* =========================
-   Téléportation - logique
-   ========================= */
-async function toggleTeleportPanel() {
-  try {
-    if (tpPanelOpen) {
-      await WA.ui.website.close('tp-panel');
-      tpPanelOpen = false;
-      console.log('[WA] Teleport panel closed');
-      return;
+    // 0) Bouton TEST minimal pour vérifier le chargement
+    try {
+      const testCb = () => alert('Le script WA est bien chargé ✅');
+      (WA.ui && WA.ui.actionBar && WA.ui.actionBar.addButton) && WA.ui.actionBar.addButton({
+        id: 'test-btn',
+        label: 'Test',
+        tooltip: 'Test script',
+        callback: testCb,
+        clickCallback: testCb,
+      });
+      log('Test button added');
+    } catch (e) {
+      err('Failed to add Test button:', e);
     }
-    await WA.ui.website.open({
-      id: 'tp-panel',
-      url: TELEPORT_DATA_URL,   // plus de 404 : HTML embarqué
-      allowApi: true,
-      position: { vertical: 'top', horizontal: 'left' },
-      size: { width: '28vw', height: '26vh' },
-      margin: { top: '1vh', left: '1vw' },
-      visible: true,
-    });
-    window.postMessage({ type: 'tp-init', entries: TP_ENTRIES, mapUrl: MAP_URL_PATH }, '*');
-    tpPanelOpen = true;
-    console.log('[WA] Teleport panel opened');
-  } catch (e) {
-    console.error('[WA] toggleTeleportPanel error:', e);
-  }
-}
 
-// Réception depuis l'UI : demande de téléportation / fermeture
-window.addEventListener('message', (e: MessageEvent) => {
-  const data = e.data;
-  try {
-    if (data?.type === 'tp-go' && typeof data.entry === 'string') {
-      WA.nav.goToRoom(`${MAP_URL_PATH}${data.entry}`);
-      console.log('[WA] Teleporting to', `${MAP_URL_PATH}${data.entry}`);
-    } else if (data?.type === 'tp-close') {
-      WA.ui.website.close('tp-panel');
-      tpPanelOpen = false;
-      console.log('[WA] Teleport panel closed by UI');
+    // 1) Bouton CANDIDATER — uniquement nouvel onglet
+    try {
+      const candidCb = () => {
+        const url = 'https://www.ynov.com/candidature';
+        try {
+          if (WA && WA.nav && typeof WA.nav.openTab === 'function') {
+            WA.nav.openTab(url);
+          } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+          }
+        } catch (_) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+      };
+      (WA.ui && WA.ui.actionBar && WA.ui.actionBar.addButton) && WA.ui.actionBar.addButton({
+        id: 'candidater-btn',
+        label: 'Candidater',
+        tooltip: 'Ouvrir le formulaire de candidature',
+        callback: candidCb,
+        clickCallback: candidCb,
+      });
+      log('Candidater button added');
+    } catch (e) {
+      err('Failed to add "Candidater" button:', e);
     }
-  } catch (err) {
-    console.error('[WA] message handler error:', err);
-  }
-});
-/* ========================= */
 
-function openCandidatureInNewTab() {
-  const url = 'https://www.ynov.com/candidature';
-  try {
-    // Méthode WA si dispo
-    if (WA?.nav?.openTab) {
-      WA.nav.openTab(url);
-      return;
+    // 2) Bouton TÉLÉPORTATION — ouvre/ferme un panneau, UI en data URL
+    try {
+      const tpCb = async () => {
+        try {
+          if (tpPanelOpen) {
+            await WA.ui.website.close('tp-panel');
+            tpPanelOpen = false;
+            log('Teleport panel closed');
+            return;
+          }
+          await WA.ui.website.open({
+            id: 'tp-panel',
+            url: TELEPORT_DATA_URL, // pas de 404 possible
+            allowApi: true,
+            position: { vertical: 'top', horizontal: 'left' },
+            size: { width: '28vw', height: '26vh' },
+            margin: { top: '1vh', left: '1vw' },
+            visible: true,
+          });
+          window.postMessage({ type: 'tp-init', entries: TP_ENTRIES, mapUrl: MAP_URL_PATH }, '*');
+          tpPanelOpen = true;
+          log('Teleport panel opened');
+        } catch (e) {
+          err('toggleTeleportPanel error:', e);
+        }
+      };
+
+      (WA.ui && WA.ui.actionBar && WA.ui.actionBar.addButton) && WA.ui.actionBar.addButton({
+        id: 'tp-menu',
+        label: 'Téléportation',
+        tooltip: 'Ouvrir/fermer le menu de téléportation',
+        callback: tpCb,
+        clickCallback: tpCb,
+      });
+      log('Téléportation button added');
+    } catch (e) {
+      err('Failed to add "Téléportation" button:', e);
     }
-  } catch (_) { /* ignore */ }
-  // Fallback sans iframe : ouverture navigateur
-  window.open(url, '_blank', 'noopener,noreferrer');
-}
 
-function closePopup() {
-  if (currentPopup !== undefined) {
-    currentPopup.close();
-    currentPopup = undefined;
-  }
-}
+    // 3) Petit exemple existant: popup heure sur zone "clock" (optionnel)
+    try {
+      let currentPopup;
+      WA.room.area.onEnter('clock').subscribe(() => {
+        const t = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const time = pad(t.getHours()) + ':' + pad(t.getMinutes());
+        currentPopup = WA.ui.openPopup('clockPopup', "It's " + time, []);
+      });
+      WA.room.area.onLeave('clock').subscribe(() => {
+        if (currentPopup) { currentPopup.close(); currentPopup = undefined; }
+      });
+    } catch (e) {
+      warn('clock popup init error:', e);
+    }
 
-export {};
+  }).catch((e) => err('onInit error:', e));
+
+  // Handler messages depuis l’UI de téléportation
+  window.addEventListener('message', (e) => {
+    const data = e.data;
+    try {
+      if (data && data.type === 'tp-go' && typeof data.entry === 'string') {
+        WA.nav.goToRoom(MAP_URL_PATH + data.entry);
+        log('Teleporting to', MAP_URL_PATH + data.entry);
+      } else if (data && data.type === 'tp-close') {
+        WA.ui.website.close('tp-panel');
+        tpPanelOpen = false;
+        log('Teleport panel closed by UI');
+      }
+    } catch (ex) {
+      err('message handler error:', ex);
+    }
+  });
+})();
