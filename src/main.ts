@@ -51,8 +51,8 @@ WA.onInit()
       label: "Téléportation",
       callback: async () => {
         if (panelOuvert) {
-          // ta version n'accepte pas d'argument ici
-          await WA.ui.website.close();
+          // ⬇️ Cast en any pour éviter l'erreur de typings
+          (WA.ui.website as any).close();
           panelOuvert = false;
           return;
         }
@@ -79,7 +79,8 @@ WA.onInit()
 
         const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
 
-        await WA.ui.website.open({
+        // ⬇️ (optionnel) on peut caster open aussi si tes typings chipotent
+        (WA.ui.website as any).open({
           url: dataUrl,
           allowApi: true,
           position: { vertical: "top", horizontal: "left" },
