@@ -31,7 +31,6 @@
     let ENTRIES = [];
     let MAP_URL = '';
 
-    // Reçoit la config depuis la map
     window.addEventListener('message', (e) => {
       const data = e.data;
       if (data?.type === 'tp-init') {
@@ -54,7 +53,6 @@
     function teleport() {
       const entry = select.value?.trim();
       if (!entry) return;
-      // Demande au parent d'exécuter la TP (goToRoom côté parent)
       parent.postMessage({ type: 'tp-go', entry }, '*');
     }
 
