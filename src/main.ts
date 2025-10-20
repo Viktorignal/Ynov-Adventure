@@ -9,25 +9,27 @@ let currentPopup: any = undefined;
 /* === CONFIG TÉLÉPORTATION === */
 const mapURL = "/@/ynov-1733302243/ynov_adventure/new-map";
 const zones = [
-  { id: "#TPA-IA", label: "IA" },
-  { id: "#TPAINFO", label: "Informatique" },
-  { id: "#TPACYBER", label: "Cybersécurité" },
-  { id: "#TPAARCHI", label: "Architecture" },
-  { id: "#TPABIM", label: "Bâtiment Numérique" },
-  { id: "#TPAAUDIO", label: "Audiovisuel" },
+  { id: "#TPA-IA",     label: "IA" },
+  { id: "#TPAINFO",    label: "Informatique" },
+  { id: "#TPACYBER",   label: "Cybersécurité" },
+  { id: "#TPAARCHI",   label: "Architecture" },
+  { id: "#TPABIM",     label: "Bâtiment Numérique" },
+  { id: "#TPAAUDIO",   label: "Audiovisuel" },
   { id: "#TPADIGITAL", label: "DIGITAL IA" },
-  { id: "#TPA3D", label: "3D" },
-  { id: "#TPAHUB", label: "Accueil" },
+  { id: "#TPA3D",      label: "3D" },
+  { id: "#TPAHUB",     label: "Accueil" },
 ];
-let panelOuvert = false;
+// on va créer/retirer dynamiquement ces boutons
+let tpButtonsAdded = false;
+let tpButtonIds: string[] = [];
 /* ============================ */
 
 WA.onInit()
-  .then(() => {
+  .then(async () => {
     console.log("Scripting API ready");
     console.log("Player tags: ", WA.player.tags);
 
-    // === Affichage de l'heure sur la zone "clock" ===
+    // === Affichage de l'heure sur la zone "clock" (ton code d'origine) ===
     WA.room.area.onEnter("clock").subscribe(() => {
       const today = new Date();
       const pad = (n: number) => n.toString().padStart(2, "0");
@@ -36,73 +38,80 @@ WA.onInit()
     });
     WA.room.area.onLeave("clock").subscribe(closePopup);
 
-    // === Bouton Candidater (ouvre un nouvel onglet, pas d'iframe) ===
+    // === Bouton Candidater : uniquement NOUVEL ONGLET (pas d'iframe) ===
     WA.ui.actionBar.addButton({
       id: "candidater-btn",
       label: "Candidater",
       callback: () => {
-        window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
-      },
-    });
-
-    // === Bouton Téléportation ===
-    WA.ui.actionBar.addButton({
-      id: "teleport-btn",
-      label: "Téléportation",
-      callback: async () => {
-        if (panelOuvert) {
-          // ⬇️ Cast en any pour éviter l'erreur de typings
-          (WA.ui.website as any).close();
-          panelOuvert = false;
-          return;
+        // Utilise openTab si dispo (recommandé par WA), sinon fallback navigateur
+        try {
+          if ((WA as any)?.nav?.openTab) (WA as any).nav.openTab("https://www.ynov.com/candidature");
+          else window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
+        } catch {
+          window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
         }
-
-        // Petit menu déroulant créé à la volée (data URL, aucun fichier externe)
-        const html = `
-        <html>
-          <body style="margin:0;font-family:sans-serif;background:#fff8;border-radius:10px;padding:10px">
-            <h4 style="margin:0 0 8px 0">Choisir une destination</h4>
-            <select id="zone" style="font-size:14px;padding:5px;border-radius:6px">
-              ${zones.map(z => `<option value="${z.id}">${z.label}</option>`).join("")}
-            </select>
-            <button id="go" style="margin-left:8px;padding:5px 10px;border-radius:6px">Téléporter</button>
-            <script>
-              const sel = document.getElementById('zone');
-              const btn = document.getElementById('go');
-              btn.onclick = () => {
-                const val = sel.value;
-                parent.postMessage({ type: 'tp', entry: val }, '*');
-              };
-            </script>
-          </body>
-        </html>`.trim();
-
-        const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
-
-        // ⬇️ (optionnel) on peut caster open aussi si tes typings chipotent
-        (WA.ui.website as any).open({
-          url: dataUrl,
-          allowApi: true,
-          position: { vertical: "top", horizontal: "left" },
-          size: { width: "26vw", height: "20vh" },
-          margin: { top: "1vh", left: "1vw" },
-          visible: true,
-        });
-        panelOuvert = true;
       },
     });
 
-    // === Gestion des messages de téléportation ===
-    window.addEventListener("message", (e) => {
-      if (e.data?.type === "tp") {
-        WA.nav.goToRoom(mapURL + e.data.entry);
-      }
+    // === Bouton Téléportation : toggle des sous-boutons dans la barre d'action ===
+    WA.ui.actionBar.addButton({
+      id: "teleport-toggle",
+      label: "Téléportation",
+      callback: () => {
+        if (tpButtonsAdded) {
+          removeTeleportButtons();
+        } else {
+          addTeleportButtons();
+        }
+      },
     });
 
+    // petit plus : si tu veux bootstrapExtra, ça ne gêne pas
     bootstrapExtra().catch((e) => console.error(e));
   })
   .catch((e) => console.error(e));
 
+/* === Gestion des boutons de téléportation dans la barre d'action === */
+function addTeleportButtons() {
+  // crée un bouton par zone
+  zones.forEach((z, idx) => {
+    const id = `tp-${idx}`;
+    tpButtonIds.push(id);
+    WA.ui.actionBar.addButton({
+      id,
+      label: z.label,
+      callback: () => {
+        // téléporte puis retire les boutons pour libérer la barre
+        WA.nav.goToRoom(mapURL + z.id);
+        // si tu préfères laisser les boutons, commente la ligne suivante :
+        removeTeleportButtons();
+      },
+    });
+  });
+
+  // ajoute aussi un bouton "Fermer TP" pour masquer sans téléporter
+  const closeId = "tp-close";
+  tpButtonIds.push(closeId);
+  WA.ui.actionBar.addButton({
+    id: closeId,
+    label: "Fermer TP",
+    callback: () => removeTeleportButtons(),
+  });
+
+  tpButtonsAdded = true;
+}
+
+function removeTeleportButtons() {
+  // removeButton n'est pas toujours typé, on caste en any
+  const ab: any = WA.ui.actionBar;
+  tpButtonIds.forEach((id) => {
+    try { ab.removeButton?.(id); } catch { /* ignore */ }
+  });
+  tpButtonIds = [];
+  tpButtonsAdded = false;
+}
+
+/* === utilitaires existants === */
 function closePopup() {
   if (currentPopup !== undefined) {
     currentPopup.close();
