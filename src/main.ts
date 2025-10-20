@@ -6,46 +6,47 @@ console.log('Script started successfully');
 
 let currentPopup: any = undefined;
 
-// Waiting for the API to be ready
 WA.onInit().then(() => {
     console.log('Scripting API ready');
     console.log('Player tags: ', WA.player.tags);
 
-    // --------- Ton code existant : popup horloge ----------
+    // --- Exemple existant : zone "clock" ---
     WA.room.area.onEnter('clock').subscribe(() => {
         const today = new Date();
         const time = today.getHours() + ":" + today.getMinutes();
         currentPopup = WA.ui.openPopup("clockPopup", "It's " + time, []);
     });
-
     WA.room.area.onLeave('clock').subscribe(closePopup);
-    // ------------------------------------------------------
 
-    // --------- EXEMPLE WorkAdventure : bouton Action Bar ----------
-    // Add action bar button 'Register'.
-    // (Cast en any pour neutraliser les différences de typings entre versions)
-    (WA.ui as any).actionBar.addButton({
-        id: 'gradient-btn',
-        label: 'Register',
-        bgColor: '#edb911',
-        isGradient: true,
-        // selon la version, la prop peut s'appeler "callback" OU "clickCallback" :
-        callback: (event: any) => {
-            console.log('Button clicked', event);
-            (WA.ui as any).actionBar.removeButton('gradient-btn');
-        },
-        clickCallback: (event: any) => {
-            console.log('Button clicked', event);
-            (WA.ui as any).actionBar.removeButton('gradient-btn');
-        }
-    });
-    // --------------------------------------------------------------
+    // ------------------------------------------
+    // BOUTON FIXE EN HAUT DE L'ÉCRAN
+    // ------------------------------------------
+    const bouton = document.createElement('button');
+    bouton.innerText = 'Mon bouton';
+    bouton.style.position = 'fixed';
+    bouton.style.top = '20px';        // <-- position verticale
+    bouton.style.right = '20px';      // <-- position horizontale
+    bouton.style.zIndex = '9999';     // <-- au-dessus de tout
+    bouton.style.padding = '10px 20px';
+    bouton.style.fontSize = '16px';
+    bouton.style.border = 'none';
+    bouton.style.borderRadius = '6px';
+    bouton.style.background = '#edb911';
+    bouton.style.color = '#000';
+    bouton.style.cursor = 'pointer';
+    bouton.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
 
-    // The line below bootstraps the Scripting API Extra library that adds a number of advanced properties/features to WorkAdventure
+    bouton.onclick = () => {
+        window.open('https://www.ynov.com', '_blank');
+    };
+
+    document.body.appendChild(bouton);
+
+    // ------------------------------------------
+    // Initialisation de la librairie extra
+    // ------------------------------------------
     bootstrapExtra()
-        .then(() => {
-            console.log('Scripting API Extra ready');
-        })
+        .then(() => console.log('Scripting API Extra ready'))
         .catch(e => console.error(e));
 
 }).catch(e => console.error(e));
