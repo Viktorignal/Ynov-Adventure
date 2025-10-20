@@ -6,45 +6,39 @@ console.log('Script started successfully');
 
 let currentPopup: any = undefined;
 
+// Waiting for the API to be ready
 WA.onInit().then(() => {
     console.log('Scripting API ready');
     console.log('Player tags: ', WA.player.tags);
 
-    // --- Exemple existant : zone "clock" ---
+    // --------- Ton code existant : popup horloge ----------
     WA.room.area.onEnter('clock').subscribe(() => {
         const today = new Date();
         const time = today.getHours() + ":" + today.getMinutes();
         currentPopup = WA.ui.openPopup("clockPopup", "It's " + time, []);
     });
+
     WA.room.area.onLeave('clock').subscribe(closePopup);
+    // ------------------------------------------------------
 
-    // ------------------------------------------
-    // BOUTON FIXE EN HAUT DE L'ÉCRAN
-    // ------------------------------------------
-    const bouton = document.createElement('button');
-    bouton.innerText = 'Mon bouton';
-    bouton.style.position = 'fixed';
-    bouton.style.top = '20px';        // <-- position verticale
-    bouton.style.right = '20px';      // <-- position horizontale
-    bouton.style.zIndex = '9999';     // <-- au-dessus de tout
-    bouton.style.padding = '10px 20px';
-    bouton.style.fontSize = '16px';
-    bouton.style.border = 'none';
-    bouton.style.borderRadius = '6px';
-    bouton.style.background = '#edb911';
-    bouton.style.color = '#000';
-    bouton.style.cursor = 'pointer';
-    bouton.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+    // --------- Bouton Action Bar : Candidater ----------
+    (WA.ui as any).actionBar.addButton({
+        id: 'candidater-btn',
+        label: 'Candidater',
+        bgColor: '#edb911',       // couleur dorée
+        isGradient: true,         // effet dégradé
+        callback: () => {
+            console.log('Bouton Candidater cliqué');
+            window.open('https://www.ynov.com/candidature', '_blank');
+        },
+        clickCallback: () => {
+            console.log('Bouton Candidater cliqué');
+            window.open('https://www.ynov.com/candidature', '_blank');
+        }
+    });
+    // ------------------------------------------------------
 
-    bouton.onclick = () => {
-        window.open('https://www.ynov.com', '_blank');
-    };
-
-    document.body.appendChild(bouton);
-
-    // ------------------------------------------
-    // Initialisation de la librairie extra
-    // ------------------------------------------
+    // Initialisation des fonctionnalités "extra"
     bootstrapExtra()
         .then(() => console.log('Scripting API Extra ready'))
         .catch(e => console.error(e));
