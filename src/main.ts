@@ -2,16 +2,16 @@
 
 import { bootstrapExtra } from "@workadventure/scripting-api-extra";
 
-declare const WA: any; // tolérant si les typings ne correspondent pas exactement
+declare const WA: any;
 
-console.log('[WA] Script file loaded'); // doit apparaître dans la console du navigateur
+console.log('[WA] Script file loaded');
 
 let currentPopup: any = undefined;
 
 /* =========================
    Téléportation - CONFIG
    ========================= */
-const MAP_URL_PATH = '/@/ynov-1733302243/ynov_adventure/new-map'; // <-- chemin relatif (plus robuste que l'URL absolue)
+const MAP_URL_PATH = '/@/ynov-1733302243/ynov_adventure/new-map'; // chemin relatif vers ta map
 const TP_ENTRIES = [
   { id: '#TPA-IA',     label: 'IA' },
   { id: '#TPAINFO',    label: 'Informatique' },
@@ -24,19 +24,87 @@ const TP_ENTRIES = [
   { id: '#TPAHUB',     label: 'Accueil' },
 ];
 let tpPanelOpen = false;
+
+/* UI embarquée en data URL (pas de fichier externe, pas de 404) */
+const TELEPORT_HTML = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Téléportation</title>
+  <style>
+    html,body{margin:0;padding:0;font-family:system-ui, sans-serif}
+    .card{background:#ffffffcc; backdrop-filter: blur(6px);
+          border:1px solid #ddd; border-radius:12px; padding:12px}
+    .title{font-weight:600; font-size:14px; margin-bottom:8px}
+    .row{display:flex; gap:8px; align-items:center}
+    select,button{font-size:14px; padding:8px 10px; border-radius:10px; border:1px solid #ccc}
+    button{cursor:pointer}
+    .hint{margin-top:8px; font-size:12px; opacity:.8}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">Choisir une destination</div>
+    <div class="row">
+      <select id="zone"></select>
+      <button id="go">Téléporter</button>
+    </div>
+    <div class="hint">Clique de nouveau sur le bouton « Téléportation » pour fermer ce menu.</div>
+  </div>
+
+  <script type="module">
+    const select = document.getElementById('zone');
+    const btn = document.getElementById('go');
+
+    let ENTRIES = [];
+    let MAP_URL = '';
+
+    window.addEventListener('message', (e) => {
+      const data = e.data;
+      if (data?.type === 'tp-init') {
+        ENTRIES = Array.isArray(data.entries) ? data.entries : [];
+        MAP_URL = data.mapUrl || '';
+        fillOptions();
+      }
+    });
+
+    function fillOptions() {
+      select.innerHTML = '';
+      ENTRIES.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.label || e.id;
+        select.appendChild(opt);
+      });
+    }
+
+    function teleport() {
+      const entry = select.value?.trim();
+      if (!entry) return;
+      parent.postMessage({ type: 'tp-go', entry }, '*');
+    }
+
+    btn.addEventListener('click', teleport);
+    select.addEventListener('keydown', (e) => { if (e.key === 'Enter') teleport(); });
+  </script>
+</body>
+</html>
+`.trim();
+
+const TELEPORT_DATA_URL = 'data:text/html;charset=utf-8,' + encodeURIComponent(TELEPORT_HTML);
 /* ========================= */
 
 WA.onInit().then(async () => {
   console.log('[WA] onInit OK');
   try {
-    // Important : initialiser le “extra” tôt (certaines UI en dépendent selon versions)
     await bootstrapExtra();
     console.log('[WA] bootstrapExtra OK');
   } catch (e) {
     console.warn('[WA] bootstrapExtra error (non bloquant):', e);
   }
 
-  // --- Popup heure sur la zone "clock" (code existant) ---
+  // --- Popup heure sur la zone "clock" (existant) ---
   try {
     WA.room.area.onEnter('clock').subscribe(() => {
       const today = new Date();
@@ -49,7 +117,7 @@ WA.onInit().then(async () => {
     console.warn('[WA] clock popup init error:', e);
   }
 
-  // --- Bouton "Candidater" (robuste : supporte callback OU clickCallback) ---
+  // --- Bouton "Candidater" — uniquement nouvel onglet (pas d'iframe) ---
   try {
     const candidCb = () => openCandidatureInNewTab();
     WA.ui.actionBar.addButton?.({
@@ -104,7 +172,7 @@ async function toggleTeleportPanel() {
     }
     await WA.ui.website.open({
       id: 'tp-panel',
-      url: '/teleport.html',  // <-- à la racine de public
+      url: TELEPORT_DATA_URL,   // plus de 404 : HTML embarqué
       allowApi: true,
       position: { vertical: 'top', horizontal: 'left' },
       size: { width: '28vw', height: '26vh' },
@@ -124,7 +192,6 @@ window.addEventListener('message', (e: MessageEvent) => {
   const data = e.data;
   try {
     if (data?.type === 'tp-go' && typeof data.entry === 'string') {
-      // data.entry contient déjà le '#'
       WA.nav.goToRoom(`${MAP_URL_PATH}${data.entry}`);
       console.log('[WA] Teleporting to', `${MAP_URL_PATH}${data.entry}`);
     } else if (data?.type === 'tp-close') {
@@ -141,10 +208,14 @@ window.addEventListener('message', (e: MessageEvent) => {
 function openCandidatureInNewTab() {
   const url = 'https://www.ynov.com/candidature';
   try {
-    WA.nav.openTab?.(url) ?? WA.ui.website.open({ url, position: { vertical: 'middle', horizontal: 'right' }, size: { width: '45vw', height: '90vh' } });
-  } catch (_) {
-    WA.ui.website.open({ url, position: { vertical: 'middle', horizontal: 'right' }, size: { width: '45vw', height: '90vh' } });
-  }
+    // Méthode WA si dispo
+    if (WA?.nav?.openTab) {
+      WA.nav.openTab(url);
+      return;
+    }
+  } catch (_) { /* ignore */ }
+  // Fallback sans iframe : ouverture navigateur
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function closePopup() {
