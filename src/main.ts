@@ -2,7 +2,6 @@
 
 // Logs utiles
 const log  = (...a: any[]) => console.log("[WA]", ...a);
-const warn = (...a: any[]) => console.warn("[WA]", ...a);
 const err  = (...a: any[]) => console.error("[WA]", ...a);
 
 /* ================== CONFIG ================== */
@@ -79,10 +78,8 @@ function openTeleportUI() {
 
 /* -------- Fallback : sous-menu action bar -------- */
 function openTeleportActionBarFallback() {
-  // Nettoyer d’éventuels anciens boutons
   removeTeleportActionBarButtons();
 
-  // Créer un bouton par zone (oui, ils s’alignent horizontalement, mais c’est un secours)
   zones.forEach((z, idx) => {
     const id = `tp-${idx}`;
     tempTpButtonIds.push(id);
@@ -91,13 +88,11 @@ function openTeleportActionBarFallback() {
       label: z.label,
       callback: () => {
         WA.nav.goToRoom(mapURL + z.id);
-        // Retire les boutons après TP (tu peux commenter si tu veux les garder)
         removeTeleportActionBarButtons();
       },
     });
   });
 
-  // bouton Fermer
   const closeId = "tp-close";
   tempTpButtonIds.push(closeId);
   WA.ui.actionBar.addButton({
