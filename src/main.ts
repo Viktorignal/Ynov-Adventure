@@ -2,158 +2,126 @@
 
 import { bootstrapExtra } from "@workadventure/scripting-api-extra";
 
-console.log("Script started successfully");
+console.log("[WA] Script file loaded");
 
 let currentPopup: any = undefined;
 
-/* === CONFIG TÉLÉPORTATION === */
+/* === CONFIG === */
 const mapURL = "/@/ynov-1733302243/ynov_adventure/new-map";
 const zones = [
-  { id: "#TPA-IA", label: "IA" },
-  { id: "#TPAINFO", label: "Informatique" },
-  { id: "#TPACYBER", label: "Cybersécurité" },
-  { id: "#TPAARCHI", label: "Architecture" },
-  { id: "#TPABIM", label: "Bâtiment Numérique" },
-  { id: "#TPAAUDIO", label: "Audiovisuel" },
+  { id: "#TPA-IA",     label: "IA" },
+  { id: "#TPAINFO",    label: "Informatique" },
+  { id: "#TPACYBER",   label: "Cybersécurité" },
+  { id: "#TPAARCHI",   label: "Architecture" },
+  { id: "#TPABIM",     label: "Bâtiment Numérique" },
+  { id: "#TPAAUDIO",   label: "Audiovisuel" },
   { id: "#TPADIGITAL", label: "DIGITAL IA" },
-  { id: "#TPA3D", label: "3D" },
-  { id: "#TPAHUB", label: "Accueil" },
+  { id: "#TPA3D",      label: "3D" },
+  { id: "#TPAHUB",     label: "Accueil" },
 ];
-/* ============================ */
+/* ============== */
 
 WA.onInit()
   .then(async () => {
-    console.log("Scripting API ready");
-    console.log("Player tags: ", WA.player.tags);
+    console.log("[WA] onInit OK");
 
-    // === Zone "clock" (affiche l’heure) ===
-    WA.room.area.onEnter("clock").subscribe(() => {
-      const today = new Date();
-      const pad = (n: number) => n.toString().padStart(2, "0");
-      const time = `${pad(today.getHours())}:${pad(today.getMinutes())}`;
-      currentPopup = WA.ui.openPopup("clockPopup", "It's " + time, []);
-    });
-    WA.room.area.onLeave("clock").subscribe(closePopup);
+    // (Optionnel) ton code horloge
+    try {
+      WA.room.area.onEnter("clock").subscribe(() => {
+        const d = new Date();
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        currentPopup = WA.ui.openPopup("clockPopup", "It's " + time, []);
+      });
+      WA.room.area.onLeave("clock").subscribe(closeClockPopup);
+    } catch (e) {
+      console.warn("[WA] clock init warn:", e);
+    }
 
-    /* === Bouton CANDIDATER === */
-    // Jaune + effet hover
-    (WA.ui as any).actionBar.addButton({
-      id: "candidater-btn",
-      label: "Candidater",
-      color: "#f5c400",
-      hoverColor: "#ffe066",
-      callback: () => {
-        try {
-          if ((WA as any)?.nav?.openTab)
-            (WA as any).nav.openTab("https://www.ynov.com/candidature");
-          else
-            window.open(
-              "https://www.ynov.com/candidature",
-              "_blank",
-              "noopener,noreferrer"
-            );
-        } catch {
-          window.open(
-            "https://www.ynov.com/candidature",
-            "_blank",
-            "noopener,noreferrer"
-          );
-        }
-      },
-    });
+    // 1) Bouton Candidater — onglet uniquement (pas d'iframe)
+    try {
+      WA.ui.actionBar.addButton({
+        id: "candidater-btn",
+        // Emoji pour un rendu "jaune" visuel (pas de style API dans ta version)
+        label: "🟡 Candidater",
+        callback: () => {
+          try {
+            if ((WA as any)?.nav?.openTab) (WA as any).nav.openTab("https://www.ynov.com/candidature");
+            else window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
+          } catch {
+            window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
+          }
+        },
+      });
+      console.log("[WA] Candidater button added");
+    } catch (e) {
+      console.error("[WA] add candidater button error:", e);
+    }
 
-    /* === Bouton TÉLÉPORTATION === */
-    (WA.ui as any).actionBar.addButton({
-      id: "teleport-btn",
-      label: "Téléportation",
-      color: "#2ea7ff",
-      hoverColor: "#79c2ff",
-      callback: () => openTeleportationPanel(),
-    });
+    // 2) Bouton Téléportation — ouvre une liste VERTICALE (modal si dispo, sinon popup)
+    try {
+      WA.ui.actionBar.addButton({
+        id: "teleport-btn",
+        label: "🧭 Téléportation",
+        callback: () => openTeleportList(),
+      });
+      console.log("[WA] Teleportation button added");
+    } catch (e) {
+      console.error("[WA] add teleport button error:", e);
+    }
 
-    bootstrapExtra().catch((e) => console.error(e));
+    try {
+      await bootstrapExtra();
+    } catch (e) {
+      console.warn("[WA] bootstrapExtra warn:", e);
+    }
   })
-  .catch((e) => console.error(e));
+  .catch((e) => console.error("[WA] onInit error:", e));
 
-/* === Téléportation === */
-function openTeleportationPanel() {
-  const html = `
-  <html>
-  <body style="
-    margin:0;
-    padding:12px;
-    font-family:sans-serif;
-    background:#ffffffee;
-    backdrop-filter:blur(6px);
-    border-radius:10px;
-  ">
-    <h4 style="margin:0 0 10px 0;">Choisissez une destination :</h4>
-    <div style="display:flex; flex-direction:column; gap:6px;">
-      ${zones
-        .map(
-          (z) => `
-          <button
-            style="
-              padding:8px;
-              border-radius:8px;
-              border:1px solid #ccc;
-              background:#2ea7ff;
-              color:white;
-              cursor:pointer;
-              font-size:14px;
-            "
-            onmouseover="this.style.background='#79c2ff'"
-            onmouseout="this.style.background='#2ea7ff'"
-            onclick="parent.postMessage({type:'tp', entry:'${z.id}'}, '*')"
-          >
-            ${z.label}
-          </button>`
-        )
-        .join("")}
-      <button
-        style="
-          margin-top:8px;
-          padding:6px;
-          border-radius:8px;
-          border:1px solid #ccc;
-          background:#ccc;
-          cursor:pointer;
-        "
-        onclick="parent.postMessage({type:'closeTp'}, '*')"
-      >
-        Fermer
-      </button>
-    </div>
-  </body>
-  </html>`.trim();
+/* === Téléportation: liste verticale via UI native === */
+function openTeleportList() {
+  const modalApi = (WA.ui as any)?.modal;
 
-  const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+  // 2a) Modal vertical (si disponible sur ta version)
+  if (modalApi?.openModal) {
+    const buttons = zones.map((z) => ({
+      label: z.label,
+      callback: () => {
+        WA.nav.goToRoom(mapURL + z.id);
+        try { modalApi.closeModal?.(); } catch {}
+      },
+    }));
+    buttons.push({ label: "Fermer", callback: () => { try { modalApi.closeModal?.(); } catch {} } });
 
-  // Affiche un petit panneau vertical à gauche
-  (WA.ui.website as any).open({
-    url: dataUrl,
-    allowApi: true,
-    position: { vertical: "middle", horizontal: "left" },
-    size: { width: "18vw", height: "65vh" },
-    margin: { left: "1vw" },
-    visible: true,
-  });
+    modalApi.openModal({
+      title: "Téléportation",
+      content: "Choisissez une destination :",
+      buttons,
+    });
+    return;
+  }
+
+  // 2b) Fallback popup (affichage vertical natif aussi)
+  const popupButtons = zones.map((z) => ({
+    label: z.label,
+    callback: () => {
+      WA.nav.goToRoom(mapURL + z.id);
+      try { currentPopup?.close?.(); } catch {}
+    },
+  }));
+  popupButtons.push({ label: "Fermer", callback: () => { try { currentPopup?.close?.(); } catch {} } });
+
+  currentPopup = WA.ui.openPopup(
+    "tpPopup",
+    "Téléportation\n\nChoisissez une destination :",
+    popupButtons
+  );
 }
 
-// Gestion des actions envoyées depuis le panneau
-window.addEventListener("message", (e) => {
-  if (e.data?.type === "tp") {
-    WA.nav.goToRoom(mapURL + e.data.entry);
-    (WA.ui.website as any).close?.();
-  } else if (e.data?.type === "closeTp") {
-    (WA.ui.website as any).close?.();
-  }
-});
-
-/* === Utilitaire pour fermer la popup horloge === */
-function closePopup() {
+/* === Utilitaire horloge === */
+function closeClockPopup() {
   if (currentPopup !== undefined) {
-    currentPopup.close();
+    try { currentPopup.close(); } catch {}
     currentPopup = undefined;
   }
 }
