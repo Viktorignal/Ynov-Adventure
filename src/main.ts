@@ -1,12 +1,8 @@
 /// <reference types="@workadventure/iframe-api-typings" />
 
-// Logs
-const log  = (...a: any[]) => console.log("[WA]", ...a);
-const err  = (...a: any[]) => console.error("[WA]", ...a);
-
-// Config
+/* ================== CONFIG ================== */
 const mapURL = "/@/ynov-1733302243/ynov_adventure/new-map";
-const zones: { id: string; label: string }[] = [
+const ZONES: { id: string; label: string }[] = [
   { id: "#TPA-IA",     label: "IA" },
   { id: "#TPAINFO",    label: "Informatique" },
   { id: "#TPACYBER",   label: "Cybersécurité" },
@@ -17,21 +13,60 @@ const zones: { id: string; label: string }[] = [
   { id: "#TPA3D",      label: "3D" },
   { id: "#TPAHUB",     label: "Accueil" },
 ];
+/* ============================================= */
 
-// État sous-menu TP
+/* ===== Helpers “compat” pour l’action bar ===== */
+function addActionButtonCompat(opts: {
+  id: string;
+  label: string;
+  onClick: () => void;
+  bgColor?: string;
+  isGradient?: boolean;
+  hoverColor?: string;
+}) {
+  const cfg: any = {
+    id: opts.id,
+    label: opts.label,
+    callback: opts.onClick,
+    clickCallback: opts.onClick, // selon version
+  };
+  // Si ton instance supporte la couleur/gradient, elle les prendra. Sinon, ignoré sans casser.
+  if (opts.bgColor) cfg.bgColor = opts.bgColor;
+  if (opts.isGradient !== undefined) cfg.isGradient = opts.isGradient;
+  if (opts.hoverColor) cfg.hoverColor = opts.hoverColor;
+
+  (WA.ui as any).actionBar.addButton(cfg);
+}
+
+function removeActionButton(id: string) {
+  const ab: any = WA.ui.actionBar;
+  try { ab.removeButton?.(id); } catch { /* ignore */ }
+}
+
+/* =============== Téléportation (action bar paginée) =============== */
+const MAIN_TP_BTN_ID = "teleport-btn";
+
 let tpOpen = false;
 let tpPage = 0;
-const PER_PAGE = 3;
 let tpButtonIds: string[] = [];
 
-WA.onInit().then(() => {
-  log("onInit OK");
+// Détection mobile : pointer tactile OU petite largeur
+const IS_MOBILE =
+  /Mobi|Android/i.test(navigator.userAgent) ||
+  (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) ||
+  (typeof window !== "undefined" && window.innerWidth < 768);
 
-  // Candidater — nouvel onglet uniquement
-  WA.ui.actionBar.addButton({
+// Desktop = 3 par page, Mobile = 1 par page pour garantir l’affichage
+const PER_PAGE = IS_MOBILE ? 1 : 3;
+
+WA.onInit().then(() => {
+  // 🟡 Candidater — onglet uniquement (jamais d’iframe)
+  addActionButtonCompat({
     id: "candidater-btn",
     label: "Candidater",
-    callback: () => {
+    bgColor: "#edb911",
+    isGradient: true,
+    onClick: () => {
       try {
         // @ts-ignore selon version
         if (WA?.nav?.openTab) WA.nav.openTab("https://www.ynov.com/candidature");
@@ -42,49 +77,96 @@ WA.onInit().then(() => {
     },
   });
 
-  // Téléportation — sous-menu paginé
-  WA.ui.actionBar.addButton({
-    id: "teleport-btn",
+  // 🧭 Téléportation — bouton principal (sera retiré quand le menu s’ouvre)
+  addActionButtonCompat({
+    id: MAIN_TP_BTN_ID,
     label: "Téléportation",
-    callback: () => toggleTeleportMenu(),
+    bgColor: "#2ea7ff",
+    isGradient: true,
+    onClick: () => openTeleportMenu(),
   });
+}).catch((e) => console.error("[WA] onInit error:", e));
 
-  log("Buttons added");
-}).catch((e) => err("onInit error:", e));
+function openTeleportMenu() {
+  if (tpOpen) return;
 
-// Sous-menu TP
-function toggleTeleportMenu() {
-  if (tpOpen) { removeTpButtons(); tpOpen = false; return; }
-  tpPage = 0; drawTpButtons(); tpOpen = true;
+  // on enlève le bouton principal pour libérer la place (tu le voulais “soit l’un soit l’autre”)
+  removeActionButton(MAIN_TP_BTN_ID);
+
+  tpOpen = true;
+  tpPage = 0;
+  drawTpButtons();
 }
+
+function closeTeleportMenu() {
+  // supprime les sous-boutons actuels
+  removeTpButtons();
+  tpOpen = false;
+
+  // ré-ajoute le bouton principal Téléportation
+  addActionButtonCompat({
+    id: MAIN_TP_BTN_ID,
+    label: "Téléportation",
+    bgColor: "#2ea7ff",
+    isGradient: true,
+    onClick: () => openTeleportMenu(),
+  });
+}
+
 function drawTpButtons() {
   removeTpButtons();
 
-  const total = Math.max(1, Math.ceil(zones.length / PER_PAGE));
-  tpPage = Math.max(0, Math.min(tpPage, total - 1));
+  const totalPages = Math.max(1, Math.ceil(ZONES.length / PER_PAGE));
+  tpPage = Math.max(0, Math.min(tpPage, totalPages - 1));
+
   const start = tpPage * PER_PAGE;
-  const slice = zones.slice(start, start + PER_PAGE);
+  const slice = ZONES.slice(start, start + PER_PAGE);
 
-  if (tpPage > 0) addTpButton("tp-prev", "◀", () => { tpPage--; drawTpButtons(); });
+  // 1) ◀ (si pas première page)
+  if (tpPage > 0) {
+    addTpButton("tp-prev", "◀", () => {
+      tpPage -= 1;
+      drawTpButtons();
+    });
+  }
 
+  // 2) zones de la page
   slice.forEach((z, i) => {
     addTpButton(`tp-z-${start + i}`, z.label, () => {
       WA.nav.goToRoom(mapURL + z.id);
-      // pour laisser ouvert après TP, commente ces 2 lignes :
-      removeTpButtons(); tpOpen = false;
+      // refermer après TP (si tu veux garder ouvert, commente ces deux lignes)
+      closeTeleportMenu();
     });
   });
 
-  if (tpPage < total - 1) addTpButton("tp-next", "▶", () => { tpPage++; drawTpButtons(); });
-  addTpButton("tp-close", "Fermer", () => { removeTpButtons(); tpOpen = false; });
+  // 3) ▶ (si pas dernière page)
+  if (tpPage < totalPages - 1) {
+    addTpButton("tp-next", "▶", () => {
+      tpPage += 1;
+      drawTpButtons();
+    });
+  }
+
+  // 4) ✖ Fermer
+  addTpButton("tp-close", "✖", () => closeTeleportMenu());
 }
+
 function addTpButton(id: string, label: string, cb: () => void) {
   tpButtonIds.push(id);
-  (WA.ui as any).actionBar.addButton({ id, label, callback: cb, clickCallback: cb });
+  // sous-boutons : pas de style “exotique” pour maximiser la compat
+  (WA.ui as any).actionBar.addButton({
+    id,
+    label,
+    callback: cb,
+    clickCallback: cb,
+  });
 }
+
 function removeTpButtons() {
   const ab: any = WA.ui.actionBar;
-  tpButtonIds.forEach((id) => { try { ab.removeButton?.(id); } catch {} });
+  tpButtonIds.forEach((id) => {
+    try { ab.removeButton?.(id); } catch {}
+  });
   tpButtonIds = [];
 }
 
