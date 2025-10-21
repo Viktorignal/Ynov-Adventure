@@ -9,19 +9,16 @@ let currentPopup: any = undefined;
 /* === CONFIG TÉLÉPORTATION === */
 const mapURL = "/@/ynov-1733302243/ynov_adventure/new-map";
 const zones = [
-  { id: "#TPA-IA",     label: "IA" },
-  { id: "#TPAINFO",    label: "Informatique" },
-  { id: "#TPACYBER",   label: "Cybersécurité" },
-  { id: "#TPAARCHI",   label: "Architecture" },
-  { id: "#TPABIM",     label: "Bâtiment Numérique" },
-  { id: "#TPAAUDIO",   label: "Audiovisuel" },
+  { id: "#TPA-IA", label: "IA" },
+  { id: "#TPAINFO", label: "Informatique" },
+  { id: "#TPACYBER", label: "Cybersécurité" },
+  { id: "#TPAARCHI", label: "Architecture" },
+  { id: "#TPABIM", label: "Bâtiment Numérique" },
+  { id: "#TPAAUDIO", label: "Audiovisuel" },
   { id: "#TPADIGITAL", label: "DIGITAL IA" },
-  { id: "#TPA3D",      label: "3D" },
-  { id: "#TPAHUB",     label: "Accueil" },
+  { id: "#TPA3D", label: "3D" },
+  { id: "#TPAHUB", label: "Accueil" },
 ];
-// on va créer/retirer dynamiquement ces boutons
-let tpButtonsAdded = false;
-let tpButtonIds: string[] = [];
 /* ============================ */
 
 WA.onInit()
@@ -29,7 +26,7 @@ WA.onInit()
     console.log("Scripting API ready");
     console.log("Player tags: ", WA.player.tags);
 
-    // === Affichage de l'heure sur la zone "clock" (ton code d'origine) ===
+    // === Zone "clock" (affiche l’heure) ===
     WA.room.area.onEnter("clock").subscribe(() => {
       const today = new Date();
       const pad = (n: number) => n.toString().padStart(2, "0");
@@ -38,80 +35,122 @@ WA.onInit()
     });
     WA.room.area.onLeave("clock").subscribe(closePopup);
 
-    // === Bouton Candidater : uniquement NOUVEL ONGLET (pas d'iframe) ===
-    WA.ui.actionBar.addButton({
+    /* === Bouton CANDIDATER === */
+    // Jaune + effet hover
+    (WA.ui as any).actionBar.addButton({
       id: "candidater-btn",
       label: "Candidater",
+      color: "#f5c400",
+      hoverColor: "#ffe066",
       callback: () => {
-        // Utilise openTab si dispo (recommandé par WA), sinon fallback navigateur
         try {
-          if ((WA as any)?.nav?.openTab) (WA as any).nav.openTab("https://www.ynov.com/candidature");
-          else window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
+          if ((WA as any)?.nav?.openTab)
+            (WA as any).nav.openTab("https://www.ynov.com/candidature");
+          else
+            window.open(
+              "https://www.ynov.com/candidature",
+              "_blank",
+              "noopener,noreferrer"
+            );
         } catch {
-          window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
+          window.open(
+            "https://www.ynov.com/candidature",
+            "_blank",
+            "noopener,noreferrer"
+          );
         }
       },
     });
 
-    // === Bouton Téléportation : toggle des sous-boutons dans la barre d'action ===
-    WA.ui.actionBar.addButton({
-      id: "teleport-toggle",
+    /* === Bouton TÉLÉPORTATION === */
+    (WA.ui as any).actionBar.addButton({
+      id: "teleport-btn",
       label: "Téléportation",
-      callback: () => {
-        if (tpButtonsAdded) {
-          removeTeleportButtons();
-        } else {
-          addTeleportButtons();
-        }
-      },
+      color: "#2ea7ff",
+      hoverColor: "#79c2ff",
+      callback: () => openTeleportationPanel(),
     });
 
-    // petit plus : si tu veux bootstrapExtra, ça ne gêne pas
     bootstrapExtra().catch((e) => console.error(e));
   })
   .catch((e) => console.error(e));
 
-/* === Gestion des boutons de téléportation dans la barre d'action === */
-function addTeleportButtons() {
-  // crée un bouton par zone
-  zones.forEach((z, idx) => {
-    const id = `tp-${idx}`;
-    tpButtonIds.push(id);
-    WA.ui.actionBar.addButton({
-      id,
-      label: z.label,
-      callback: () => {
-        // téléporte puis retire les boutons pour libérer la barre
-        WA.nav.goToRoom(mapURL + z.id);
-        // si tu préfères laisser les boutons, commente la ligne suivante :
-        removeTeleportButtons();
-      },
-    });
-  });
+/* === Téléportation === */
+function openTeleportationPanel() {
+  const html = `
+  <html>
+  <body style="
+    margin:0;
+    padding:12px;
+    font-family:sans-serif;
+    background:#ffffffee;
+    backdrop-filter:blur(6px);
+    border-radius:10px;
+  ">
+    <h4 style="margin:0 0 10px 0;">Choisissez une destination :</h4>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${zones
+        .map(
+          (z) => `
+          <button
+            style="
+              padding:8px;
+              border-radius:8px;
+              border:1px solid #ccc;
+              background:#2ea7ff;
+              color:white;
+              cursor:pointer;
+              font-size:14px;
+            "
+            onmouseover="this.style.background='#79c2ff'"
+            onmouseout="this.style.background='#2ea7ff'"
+            onclick="parent.postMessage({type:'tp', entry:'${z.id}'}, '*')"
+          >
+            ${z.label}
+          </button>`
+        )
+        .join("")}
+      <button
+        style="
+          margin-top:8px;
+          padding:6px;
+          border-radius:8px;
+          border:1px solid #ccc;
+          background:#ccc;
+          cursor:pointer;
+        "
+        onclick="parent.postMessage({type:'closeTp'}, '*')"
+      >
+        Fermer
+      </button>
+    </div>
+  </body>
+  </html>`.trim();
 
-  // ajoute aussi un bouton "Fermer TP" pour masquer sans téléporter
-  const closeId = "tp-close";
-  tpButtonIds.push(closeId);
-  WA.ui.actionBar.addButton({
-    id: closeId,
-    label: "Fermer TP",
-    callback: () => removeTeleportButtons(),
-  });
+  const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
 
-  tpButtonsAdded = true;
+  // Affiche un petit panneau vertical à gauche
+  (WA.ui.website as any).open({
+    url: dataUrl,
+    allowApi: true,
+    position: { vertical: "middle", horizontal: "left" },
+    size: { width: "18vw", height: "65vh" },
+    margin: { left: "1vw" },
+    visible: true,
+  });
 }
 
-function removeTeleportButtons() {
-  // removeButton n'est pas toujours typé, on caste en any
-  const ab: any = WA.ui.actionBar;
-  tpButtonIds.forEach((id) => {
-    try { ab.removeButton?.(id); } catch { /* ignore */ }
-  });
-  tpButtonIds = [];
-  tpButtonsAdded = false;
-}
+// Gestion des actions envoyées depuis le panneau
+window.addEventListener("message", (e) => {
+  if (e.data?.type === "tp") {
+    WA.nav.goToRoom(mapURL + e.data.entry);
+    (WA.ui.website as any).close?.();
+  } else if (e.data?.type === "closeTp") {
+    (WA.ui.website as any).close?.();
+  }
+});
 
-/* === utilitaires existants === */
+/* === Utilitaire pour fermer la popup horloge === */
 function closePopup() {
   if (currentPopup !== undefined) {
     currentPopup.close();
