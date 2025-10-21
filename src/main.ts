@@ -1,10 +1,9 @@
 /// <reference types="@workadventure/iframe-api-typings" />
 
-import { bootstrapExtra } from "@workadventure/scripting-api-extra";
-
 console.log("[WA] Script file loaded");
 
-let currentPopup: any = undefined;
+let clockPopup: any | undefined = undefined;
+let tpPopup: any | undefined = undefined;
 
 /* === CONFIG === */
 const mapURL = "/@/ynov-1733302243/ynov_adventure/new-map";
@@ -22,108 +21,83 @@ const zones = [
 /* ============== */
 
 WA.onInit()
-  .then(async () => {
+  .then(() => {
     console.log("[WA] onInit OK");
 
-    // (Optionnel) ton code horloge
+    /* === Exemple existant : popup heure sur la zone 'clock' === */
     try {
       WA.room.area.onEnter("clock").subscribe(() => {
         const d = new Date();
         const pad = (n: number) => String(n).padStart(2, "0");
         const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        currentPopup = WA.ui.openPopup("clockPopup", "It's " + time, []);
+        clockPopup = WA.ui.openPopup("clockPopup", "It's " + time, []);
       });
-      WA.room.area.onLeave("clock").subscribe(closeClockPopup);
+      WA.room.area.onLeave("clock").subscribe(() => {
+        try { clockPopup?.close?.(); } catch {}
+        clockPopup = undefined;
+      });
     } catch (e) {
       console.warn("[WA] clock init warn:", e);
     }
 
-    // 1) Bouton Candidater — onglet uniquement (pas d'iframe)
-    try {
-      WA.ui.actionBar.addButton({
-        id: "candidater-btn",
-        // Emoji pour un rendu "jaune" visuel (pas de style API dans ta version)
-        label: "🟡 Candidater",
-        callback: () => {
-          try {
-            if ((WA as any)?.nav?.openTab) (WA as any).nav.openTab("https://www.ynov.com/candidature");
-            else window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
-          } catch {
+    /* === Bouton CANDIDATER — onglet uniquement (pas d'iframe) === */
+    WA.ui.actionBar.addButton({
+      id: "candidater-btn",
+      label: "🟡 Candidater",
+      callback: () => {
+        try {
+          if ((WA as any)?.nav?.openTab) {
+            (WA as any).nav.openTab("https://www.ynov.com/candidature");
+          } else {
             window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
           }
-        },
-      });
-      console.log("[WA] Candidater button added");
-    } catch (e) {
-      console.error("[WA] add candidater button error:", e);
-    }
+        } catch {
+          window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
+        }
+      },
+    });
 
-    // 2) Bouton Téléportation — ouvre une liste VERTICALE (modal si dispo, sinon popup)
-    try {
-      WA.ui.actionBar.addButton({
-        id: "teleport-btn",
-        label: "🧭 Téléportation",
-        callback: () => openTeleportList(),
-      });
-      console.log("[WA] Teleportation button added");
-    } catch (e) {
-      console.error("[WA] add teleport button error:", e);
-    }
+    /* === Bouton TÉLÉPORTATION — ouvre une liste VERTICALE (popup native) === */
+    WA.ui.actionBar.addButton({
+      id: "teleport-btn",
+      label: "🧭 Téléportation",
+      callback: () => openTeleportPopup(),
+    });
 
-    try {
-      await bootstrapExtra();
-    } catch (e) {
-      console.warn("[WA] bootstrapExtra warn:", e);
-    }
+    console.log("[WA] Buttons added");
   })
   .catch((e) => console.error("[WA] onInit error:", e));
 
-/* === Téléportation: liste verticale via UI native === */
-function openTeleportList() {
-  const modalApi = (WA.ui as any)?.modal;
+/* === Téléportation: popup verticale native (aucune iframe) === */
+function openTeleportPopup() {
+  // Si déjà ouverte, on la ferme pour rafraîchir proprement
+  try { tpPopup?.close?.(); } catch {}
+  tpPopup = undefined;
 
-  // 2a) Modal vertical (si disponible sur ta version)
-  if (modalApi?.openModal) {
-    const buttons = zones.map((z) => ({
-      label: z.label,
-      callback: () => {
-        WA.nav.goToRoom(mapURL + z.id);
-        try { modalApi.closeModal?.(); } catch {}
-      },
-    }));
-    buttons.push({ label: "Fermer", callback: () => { try { modalApi.closeModal?.(); } catch {} } });
-
-    modalApi.openModal({
-      title: "Téléportation",
-      content: "Choisissez une destination :",
-      buttons,
-    });
-    return;
-  }
-
-  // 2b) Fallback popup (affichage vertical natif aussi)
-  const popupButtons = zones.map((z) => ({
+  const buttons = zones.map((z) => ({
     label: z.label,
     callback: () => {
       WA.nav.goToRoom(mapURL + z.id);
-      try { currentPopup?.close?.(); } catch {}
+      try { tpPopup?.close?.(); } catch {}
+      tpPopup = undefined;
     },
   }));
-  popupButtons.push({ label: "Fermer", callback: () => { try { currentPopup?.close?.(); } catch {} } });
 
-  currentPopup = WA.ui.openPopup(
-    "tpPopup",
+  // Bouton "Fermer"
+  buttons.push({
+    label: "Fermer",
+    callback: () => {
+      try { tpPopup?.close?.(); } catch {}
+      tpPopup = undefined;
+    },
+  });
+
+  // La popup WA empile les boutons verticalement
+  tpPopup = WA.ui.openPopup(
+    "teleportPopup",
     "Téléportation\n\nChoisissez une destination :",
-    popupButtons
+    buttons
   );
-}
-
-/* === Utilitaire horloge === */
-function closeClockPopup() {
-  if (currentPopup !== undefined) {
-    try { currentPopup.close(); } catch {}
-    currentPopup = undefined;
-  }
 }
 
 export {};
