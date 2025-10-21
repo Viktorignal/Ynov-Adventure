@@ -1,7 +1,7 @@
 /// <reference types="@workadventure/iframe-api-typings" />
 
 /* ================== CONFIG ================== */
-const mapURL = "/@/ynov-1733302243/ynov_adventure/new-map";
+const MAP_URL = "/@/ynov-1733302243/ynov_adventure/new-map";
 const ZONES: { id: string; label: string }[] = [
   { id: "#TPA-IA",     label: "IA" },
   { id: "#TPAINFO",    label: "Informatique" },
@@ -13,9 +13,8 @@ const ZONES: { id: string; label: string }[] = [
   { id: "#TPA3D",      label: "3D" },
   { id: "#TPAHUB",     label: "Accueil" },
 ];
-/* ============================================= */
 
-/* ===== Helpers “compat” pour l’action bar ===== */
+/* ===== Helpers “compat” ===== */
 function addActionButtonCompat(opts: {
   id: string;
   label: string;
@@ -30,37 +29,32 @@ function addActionButtonCompat(opts: {
     callback: opts.onClick,
     clickCallback: opts.onClick, // selon version
   };
-  // Si ton instance supporte la couleur/gradient, elle les prendra. Sinon, ignoré sans casser.
+  // Styles (si supportés par l’instance, ils s’appliqueront ; sinon, ignorés)
   if (opts.bgColor) cfg.bgColor = opts.bgColor;
   if (opts.isGradient !== undefined) cfg.isGradient = opts.isGradient;
   if (opts.hoverColor) cfg.hoverColor = opts.hoverColor;
 
   (WA.ui as any).actionBar.addButton(cfg);
 }
-
 function removeActionButton(id: string) {
   const ab: any = WA.ui.actionBar;
-  try { ab.removeButton?.(id); } catch { /* ignore */ }
+  try { ab.removeButton?.(id); } catch {}
 }
 
-/* =============== Téléportation (action bar paginée) =============== */
+/* ===== Téléportation : état ===== */
 const MAIN_TP_BTN_ID = "teleport-btn";
-
 let tpOpen = false;
 let tpPage = 0;
 let tpButtonIds: string[] = [];
-
-// Détection mobile : pointer tactile OU petite largeur
 const IS_MOBILE =
   /Mobi|Android/i.test(navigator.userAgent) ||
   (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) ||
   (typeof window !== "undefined" && window.innerWidth < 768);
-
-// Desktop = 3 par page, Mobile = 1 par page pour garantir l’affichage
+// Desktop = 3/page, Mobile = 1/page (si fallback action bar)
 const PER_PAGE = IS_MOBILE ? 1 : 3;
 
 WA.onInit().then(() => {
-  // 🟡 Candidater — onglet uniquement (jamais d’iframe)
+  // 🟡 Candidater — couleur + gradient si supportés (sinon style normal)
   addActionButtonCompat({
     id: "candidater-btn",
     label: "Candidater",
@@ -68,7 +62,7 @@ WA.onInit().then(() => {
     isGradient: true,
     onClick: () => {
       try {
-        // @ts-ignore selon version
+        // @ts-ignore (selon version)
         if (WA?.nav?.openTab) WA.nav.openTab("https://www.ynov.com/candidature");
         else window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
       } catch {
@@ -77,40 +71,81 @@ WA.onInit().then(() => {
     },
   });
 
-  // 🧭 Téléportation — bouton principal (sera retiré quand le menu s’ouvre)
+  // 🧭 Téléportation (le bouton disparaît pendant que la liste est ouverte)
   addActionButtonCompat({
     id: MAIN_TP_BTN_ID,
     label: "Téléportation",
     bgColor: "#2ea7ff",
     isGradient: true,
-    onClick: () => openTeleportMenu(),
+    onClick: () => openTeleportUI(),
   });
 }).catch((e) => console.error("[WA] onInit error:", e));
 
-function openTeleportMenu() {
+/* === UI Téléportation === */
+function openTeleportUI() {
   if (tpOpen) return;
+  tpOpen = true;
 
-  // on enlève le bouton principal pour libérer la place (tu le voulais “soit l’un soit l’autre”)
+  // retire le bouton principal pendant l'ouverture de la liste
   removeActionButton(MAIN_TP_BTN_ID);
 
-  tpOpen = true;
-  tpPage = 0;
-  drawTpButtons();
+  // 1) Tenter une POPUP ANCRÉE (si un objet 'tp_anchor' existe dans la map)
+  //    -> Meilleur rendu mobile (vertical, natif)
+  try {
+    openTeleportPopupAnchored("tp_anchor");
+    return;
+  } catch {
+    // 2) Sinon, fallback : sous-menu paginé dans l’action bar
+    openTeleportActionBarFallback();
+  }
 }
 
-function closeTeleportMenu() {
-  // supprime les sous-boutons actuels
-  removeTpButtons();
+function closeTeleportUI() {
   tpOpen = false;
-
-  // ré-ajoute le bouton principal Téléportation
+  // nettoie les sous-boutons du fallback si besoin
+  removeTpButtons();
+  // rétablit le bouton principal
   addActionButtonCompat({
     id: MAIN_TP_BTN_ID,
     label: "Téléportation",
     bgColor: "#2ea7ff",
     isGradient: true,
-    onClick: () => openTeleportMenu(),
+    onClick: () => openTeleportUI(),
   });
+}
+
+/* ---- Variante préférée : POPUP ancrée à un objet de la map ---- */
+function openTeleportPopupAnchored(anchorObjectName: string) {
+  // On génère les boutons (liste verticale native)
+  const buttons = ZONES.map((z) => ({
+    label: z.label,
+    callback: () => {
+      WA.nav.goToRoom(MAP_URL + z.id);
+      try { anchoredPopup?.close?.(); } catch {}
+      closeTeleportUI();
+    },
+  }));
+  buttons.push({
+    label: "Fermer",
+    callback: () => {
+      try { anchoredPopup?.close?.(); } catch {}
+      closeTeleportUI();
+    },
+  });
+
+  // IMPORTANT : l’id doit exister dans la map (Object Layer → rectangle nommé 'tp_anchor')
+  let anchoredPopup: any;
+  anchoredPopup = WA.ui.openPopup(
+    anchorObjectName,
+    "Téléportation\n\nChoisissez une destination :",
+    buttons
+  );
+}
+
+/* ---- Fallback : sous-menu paginé dans l’action bar ---- */
+function openTeleportActionBarFallback() {
+  tpPage = 0;
+  drawTpButtons();
 }
 
 function drawTpButtons() {
@@ -122,38 +157,31 @@ function drawTpButtons() {
   const start = tpPage * PER_PAGE;
   const slice = ZONES.slice(start, start + PER_PAGE);
 
-  // 1) ◀ (si pas première page)
+  // ◀
   if (tpPage > 0) {
-    addTpButton("tp-prev", "◀", () => {
-      tpPage -= 1;
-      drawTpButtons();
-    });
+    addTpBtn("tp-prev", "◀ Précédent", () => { tpPage -= 1; drawTpButtons(); });
   }
 
-  // 2) zones de la page
+  // zones
   slice.forEach((z, i) => {
-    addTpButton(`tp-z-${start + i}`, z.label, () => {
-      WA.nav.goToRoom(mapURL + z.id);
-      // refermer après TP (si tu veux garder ouvert, commente ces deux lignes)
-      closeTeleportMenu();
+    addTpBtn(`tp-z-${start + i}`, z.label, () => {
+      WA.nav.goToRoom(MAP_URL + z.id);
+      // refermer après TP (si tu veux laisser ouvert, remplace par drawTpButtons();)
+      closeTeleportUI();
     });
   });
 
-  // 3) ▶ (si pas dernière page)
+  // ▶
   if (tpPage < totalPages - 1) {
-    addTpButton("tp-next", "▶", () => {
-      tpPage += 1;
-      drawTpButtons();
-    });
+    addTpBtn("tp-next", "Suivant ▶", () => { tpPage += 1; drawTpButtons(); });
   }
 
-  // 4) ✖ Fermer
-  addTpButton("tp-close", "✖", () => closeTeleportMenu());
+  // ✖
+  addTpBtn("tp-close", "✖ Fermer", () => closeTeleportUI());
 }
 
-function addTpButton(id: string, label: string, cb: () => void) {
+function addTpBtn(id: string, label: string, cb: () => void) {
   tpButtonIds.push(id);
-  // sous-boutons : pas de style “exotique” pour maximiser la compat
   (WA.ui as any).actionBar.addButton({
     id,
     label,
@@ -161,12 +189,9 @@ function addTpButton(id: string, label: string, cb: () => void) {
     clickCallback: cb,
   });
 }
-
 function removeTpButtons() {
   const ab: any = WA.ui.actionBar;
-  tpButtonIds.forEach((id) => {
-    try { ab.removeButton?.(id); } catch {}
-  });
+  tpButtonIds.forEach((id) => { try { ab.removeButton?.(id); } catch {} });
   tpButtonIds = [];
 }
 
