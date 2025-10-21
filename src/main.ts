@@ -128,12 +128,5 @@ function openTeleportPopup(pageIndex: number) {
   tpPopup = WA.ui.openPopup("teleportPopup", body, popupButtons);
 }
 
-/* === utilitaire horloge === */
-function closeClockPopup() {
-  if (clockPopup !== undefined) {
-    try { clockPopup.close(); } catch {}
-    clockPopup = undefined;
-  }
-}
 
 export {};
