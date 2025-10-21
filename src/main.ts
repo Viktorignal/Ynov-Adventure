@@ -13,8 +13,9 @@ const ZONES: { id: string; label: string }[] = [
   { id: "#TPA3D",      label: "3D" },
   { id: "#TPAHUB",     label: "Accueil" },
 ];
+/* ============================================= */
 
-/* ===== Helpers “compat” ===== */
+/* ===== Helpers “compat” pour l’action bar ===== */
 function addActionButtonCompat(opts: {
   id: string;
   label: string;
@@ -29,11 +30,10 @@ function addActionButtonCompat(opts: {
     callback: opts.onClick,
     clickCallback: opts.onClick, // selon version
   };
-  // Styles (si supportés par l’instance, ils s’appliqueront ; sinon, ignorés)
+  // Couleurs si supportées par l’instance (sinon ignorées sans casser)
   if (opts.bgColor) cfg.bgColor = opts.bgColor;
   if (opts.isGradient !== undefined) cfg.isGradient = opts.isGradient;
   if (opts.hoverColor) cfg.hoverColor = opts.hoverColor;
-
   (WA.ui as any).actionBar.addButton(cfg);
 }
 function removeActionButton(id: string) {
@@ -41,20 +41,22 @@ function removeActionButton(id: string) {
   try { ab.removeButton?.(id); } catch {}
 }
 
-/* ===== Téléportation : état ===== */
+/* =============== Téléportation (action bar paginée) =============== */
 const MAIN_TP_BTN_ID = "teleport-btn";
+
 let tpOpen = false;
 let tpPage = 0;
 let tpButtonIds: string[] = [];
+
+// Détection mobile : on réduit à 1 zone/page
 const IS_MOBILE =
   /Mobi|Android/i.test(navigator.userAgent) ||
   (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) ||
   (typeof window !== "undefined" && window.innerWidth < 768);
-// Desktop = 3/page, Mobile = 1/page (si fallback action bar)
 const PER_PAGE = IS_MOBILE ? 1 : 3;
 
 WA.onInit().then(() => {
-  // 🟡 Candidater — couleur + gradient si supportés (sinon style normal)
+  // 🟡 Candidater — couleur/gradient si supportés (sinon style normal)
   addActionButtonCompat({
     id: "candidater-btn",
     label: "Candidater",
@@ -71,81 +73,38 @@ WA.onInit().then(() => {
     },
   });
 
-  // 🧭 Téléportation (le bouton disparaît pendant que la liste est ouverte)
+  // 🧭 Téléportation — bouton principal
   addActionButtonCompat({
     id: MAIN_TP_BTN_ID,
     label: "Téléportation",
     bgColor: "#2ea7ff",
     isGradient: true,
-    onClick: () => openTeleportUI(),
+    onClick: () => openTeleportMenu(),
   });
 }).catch((e) => console.error("[WA] onInit error:", e));
 
-/* === UI Téléportation === */
-function openTeleportUI() {
+function openTeleportMenu() {
   if (tpOpen) return;
   tpOpen = true;
-
-  // retire le bouton principal pendant l'ouverture de la liste
+  // “soit l’un soit l’autre” : on enlève le bouton principal
   removeActionButton(MAIN_TP_BTN_ID);
 
-  // 1) Tenter une POPUP ANCRÉE (si un objet 'tp_anchor' existe dans la map)
-  //    -> Meilleur rendu mobile (vertical, natif)
-  try {
-    openTeleportPopupAnchored("tp_anchor");
-    return;
-  } catch {
-    // 2) Sinon, fallback : sous-menu paginé dans l’action bar
-    openTeleportActionBarFallback();
-  }
+  tpPage = 0;
+  drawTpButtons();
 }
 
-function closeTeleportUI() {
-  tpOpen = false;
-  // nettoie les sous-boutons du fallback si besoin
+function closeTeleportMenu() {
   removeTpButtons();
-  // rétablit le bouton principal
+  tpOpen = false;
+
+  // On ré-ajoute le bouton principal téléportation
   addActionButtonCompat({
     id: MAIN_TP_BTN_ID,
     label: "Téléportation",
     bgColor: "#2ea7ff",
     isGradient: true,
-    onClick: () => openTeleportUI(),
+    onClick: () => openTeleportMenu(),
   });
-}
-
-/* ---- Variante préférée : POPUP ancrée à un objet de la map ---- */
-function openTeleportPopupAnchored(anchorObjectName: string) {
-  // On génère les boutons (liste verticale native)
-  const buttons = ZONES.map((z) => ({
-    label: z.label,
-    callback: () => {
-      WA.nav.goToRoom(MAP_URL + z.id);
-      try { anchoredPopup?.close?.(); } catch {}
-      closeTeleportUI();
-    },
-  }));
-  buttons.push({
-    label: "Fermer",
-    callback: () => {
-      try { anchoredPopup?.close?.(); } catch {}
-      closeTeleportUI();
-    },
-  });
-
-  // IMPORTANT : l’id doit exister dans la map (Object Layer → rectangle nommé 'tp_anchor')
-  let anchoredPopup: any;
-  anchoredPopup = WA.ui.openPopup(
-    anchorObjectName,
-    "Téléportation\n\nChoisissez une destination :",
-    buttons
-  );
-}
-
-/* ---- Fallback : sous-menu paginé dans l’action bar ---- */
-function openTeleportActionBarFallback() {
-  tpPage = 0;
-  drawTpButtons();
 }
 
 function drawTpButtons() {
@@ -157,31 +116,38 @@ function drawTpButtons() {
   const start = tpPage * PER_PAGE;
   const slice = ZONES.slice(start, start + PER_PAGE);
 
-  // ◀
+  // 1) ◀ Précédent
   if (tpPage > 0) {
-    addTpBtn("tp-prev", "◀ Précédent", () => { tpPage -= 1; drawTpButtons(); });
+    addTpBtn("tp-prev", "◀ Précédent", () => {
+      tpPage -= 1;
+      drawTpButtons();
+    });
   }
 
-  // zones
+  // 2) Zones de la page
   slice.forEach((z, i) => {
     addTpBtn(`tp-z-${start + i}`, z.label, () => {
       WA.nav.goToRoom(MAP_URL + z.id);
-      // refermer après TP (si tu veux laisser ouvert, remplace par drawTpButtons();)
-      closeTeleportUI();
+      // refermer après TP (si tu veux garder ouvert, remplace par drawTpButtons())
+      closeTeleportMenu();
     });
   });
 
-  // ▶
+  // 3) Suivant ▶
   if (tpPage < totalPages - 1) {
-    addTpBtn("tp-next", "Suivant ▶", () => { tpPage += 1; drawTpButtons(); });
+    addTpBtn("tp-next", "Suivant ▶", () => {
+      tpPage += 1;
+      drawTpButtons();
+    });
   }
 
-  // ✖
-  addTpBtn("tp-close", "✖ Fermer", () => closeTeleportUI());
+  // 4) ✖ Fermer
+  addTpBtn("tp-close", "✖ Fermer", () => closeTeleportMenu());
 }
 
 function addTpBtn(id: string, label: string, cb: () => void) {
   tpButtonIds.push(id);
+  // sous-boutons : pas de style “exotique” pour rester ultra-compatible
   (WA.ui as any).actionBar.addButton({
     id,
     label,
@@ -189,6 +155,7 @@ function addTpBtn(id: string, label: string, cb: () => void) {
     clickCallback: cb,
   });
 }
+
 function removeTpButtons() {
   const ab: any = WA.ui.actionBar;
   tpButtonIds.forEach((id) => { try { ab.removeButton?.(id); } catch {} });
