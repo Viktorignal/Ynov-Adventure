@@ -20,168 +20,102 @@ const ZONES: { id: string; label: string }[] = [
   { id: "#TPAHUB", label: "Accueil" },
 ];
 
-/* ======= RÉGLAGES MENU PAGINÉ ======= */
-// Taille fixe et robuste (évite les heuristiques mobile/UA)
+/* ============ RÉGLAGE SIMPLE ============
+   Pagination fixe et stable (3 éléments par page) */
 const PER_PAGE = 3;
 
-/* ============ HELPERS ============ */
-// Attend que l'action bar soit dispo (si WA n'a pas fini d'init l'UI)
-function waitForActionBar(maxTries = 25, delayMs = 200): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let tries = 0;
-    const tick = () => {
-      const ab: any = (WA.ui as any)?.actionBar;
-      if (ab?.addButton) return resolve();
-      tries++;
-      if (tries >= maxTries) return reject(new Error("actionBar indisponible"));
-      setTimeout(tick, delayMs);
-    };
-    tick();
-  });
-}
-
-function addButtonSafe(opts: {
-  id: string; label: string; onClick: () => void; bgColor?: string; isGradient?: boolean;
-}) {
+/* ============ ACTION BAR HELPERS ============ */
+function addActionButton(id: string, label: string, cb: () => void, style = true) {
   const ab: any = (WA.ui as any)?.actionBar;
-  if (!ab?.addButton) { L.err("actionBar.addButton introuvable"); return; }
-
-  // Évite les doublons si rechargé
-  try { ab.removeButton?.(opts.id); } catch {}
-
-  const base: any = { id: opts.id, label: opts.label, callback: opts.onClick, clickCallback: opts.onClick };
+  if (!ab?.addButton) { L.err("actionBar indisponible"); return false; }
+  try { ab.removeButton?.(id); } catch {}
   try {
-    if (opts.bgColor !== undefined) base.bgColor = opts.bgColor;
-    if (opts.isGradient !== undefined) base.isGradient = opts.isGradient;
+    const base: any = { id, label, callback: cb, clickCallback: cb };
+    if (style) { base.bgColor = "#2ea7ff"; base.isGradient = true; }
     ab.addButton(base);
-  } catch {
-    try { ab.addButton({ id: opts.id, label: opts.label, callback: opts.onClick, clickCallback: opts.onClick }); } catch {}
+    return true;
+  } catch (e) {
+    try { ab.addButton({ id, label, callback: cb, clickCallback: cb }); return true; }
+    catch (e2) { L.err("addButton error:", e2); return false; }
   }
 }
-function removeButtonSafe(id: string) {
-  const ab: any = (WA.ui as any)?.actionBar;
-  try { ab?.removeButton?.(id); } catch {}
+function removeActionButton(id: string) {
+  try { (WA.ui as any)?.actionBar?.removeButton?.(id); } catch {}
 }
 
-/* ======= ÉTAT TÉLÉPORTATION ======= */
+/* ============ ÉTAT ============ */
 const MAIN_TP_BTN_ID = "teleport-btn";
 let tpOpen = false;
 let tpPage = 0;
-let tpButtonIds: string[] = [];
-let unregisterMenu: Array<() => void> = [];
+let tpIds: string[] = [];
 
 /* ============ INIT ============ */
-WA.onInit()
-  .then(() => {
-    // Entrées PERMANENTES dans les paramètres (utile mobile)
-    registerMenuCommands();
-    return waitForActionBar();
-  })
-  .then(() => {
-    // Bouton principal en haut
-    addButtonSafe({
-      id: MAIN_TP_BTN_ID,
-      label: "Téléportation",
-      bgColor: "#2ea7ff",
-      isGradient: true,
-      onClick: () => openTeleportMenu(),
-    });
-  })
-  .catch((e) => L.err("Init error:", e));
+WA.onInit().then(() => {
+  // 1) Bouton principal dans l’action bar (avec several retries au cas où l’UI soit lente)
+  let tries = 0; const max = 20;
+  const tryAdd = () => {
+    tries++;
+    const ok = addActionButton(MAIN_TP_BTN_ID, "Téléportation", openTeleportMenu, true);
+    if (ok) { L.log("Bouton Téléportation OK"); return; }
+    if (tries < max) setTimeout(tryAdd, 200);
+    else L.err("Impossible d’ajouter le bouton Téléportation (action bar).");
+  };
+  tryAdd();
 
-/* ============ MENU PARAMÈTRES (toujours visibles) ============ */
-function registerMenuCommands() {
-  // Nettoyage si déjà enregistré
-  if (unregisterMenu.length) {
-    unregisterMenu.forEach((u) => { try { u(); } catch {} });
-    unregisterMenu = [];
-  }
-
-  // “Téléportation” (ouvre le menu paginé en haut)
+  // 2) (Optionnel) menu des paramètres — n’affecte pas l’action bar si indisponible
   try {
-    const unregTp = WA.ui.registerMenuCommand("Téléportation", () => openTeleportMenu());
-    if (typeof unregTp === "function") unregisterMenu.push(unregTp);
-  } catch (e) { L.err("registerMenuCommand Téléportation error:", e); }
+    const unregTp = WA.ui.registerMenuCommand?.("Téléportation", openTeleportMenu);
+    void unregTp; // on n’a pas besoin de le stocker
+    ZONES.forEach(z => WA.ui.registerMenuCommand?.(z.label, () => {
+      try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
+    }));
+  } catch (e) {
+    L.log("registerMenuCommand non disponible — pas bloquant.");
+  }
+}).catch(e => L.err("onInit error:", e));
 
-  // Une entrée par zone (accès direct depuis paramètres)
-  ZONES.forEach((z) => {
-    try {
-      const unreg = WA.ui.registerMenuCommand(z.label, () => {
-        try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e2) { L.err("goToRoom error:", e2); }
-      });
-      if (typeof unreg === "function") unregisterMenu.push(unreg);
-    } catch (e) {
-      L.err(`registerMenuCommand ${z.label} error:`, e);
-    }
-  });
-}
-
-/* ============ TÉLÉPORTATION (action bar paginée) ============ */
+/* ============ TÉLÉPORTATION (paginé avec flèches) ============ */
 function openTeleportMenu() {
   if (tpOpen) return;
   tpOpen = true;
 
-  // Retire le bouton principal pour libérer de la place
-  removeButtonSafe(MAIN_TP_BTN_ID);
+  // On enlève le bouton principal pour libérer de la place
+  removeActionButton(MAIN_TP_BTN_ID);
 
   tpPage = 0;
-  drawTpButtons();
+  drawTpPage();
 }
 
 function closeTeleportMenu() {
-  removeTpButtons();
+  clearTpButtons();
   tpOpen = false;
-
-  // Ré-ajoute le bouton principal
-  addButtonSafe({
-    id: MAIN_TP_BTN_ID,
-    label: "Téléportation",
-    bgColor: "#2ea7ff",
-    isGradient: true,
-    onClick: () => openTeleportMenu(),
-  });
+  // On remet le bouton principal
+  addActionButton(MAIN_TP_BTN_ID, "Téléportation", openTeleportMenu, true);
 }
 
-function drawTpButtons() {
-  removeTpButtons();
+function drawTpPage() {
+  clearTpButtons();
 
-  const totalPages = Math.max(1, Math.ceil(ZONES.length / PER_PAGE));
-  tpPage = Math.max(0, Math.min(tpPage, totalPages - 1));
+  const total = Math.max(1, Math.ceil(ZONES.length / PER_PAGE));
+  tpPage = Math.max(0, Math.min(tpPage, total - 1));
 
   const start = tpPage * PER_PAGE;
   const slice = ZONES.slice(start, start + PER_PAGE);
 
-  // ◀ Précédent
-  if (tpPage > 0) addTpBtn("tp-prev", "◀", () => { tpPage -= 1; drawTpButtons(); });
+  if (tpPage > 0) addTpBtn("tp-prev", "◀", () => { tpPage--; drawTpPage(); });
+  slice.forEach((z, i) => addTpBtn(`tp-${start + i}`, z.label, () => {
+    try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
+    closeTeleportMenu(); // refermer après TP
+  }));
+  if (tpPage < total - 1) addTpBtn("tp-next", "▶", () => { tpPage++; drawTpPage(); });
 
-  // Boutons de zones de la page
-  slice.forEach((z, i) => {
-    addTpBtn(`tp-z-${start + i}`, z.label, () => {
-      try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
-      closeTeleportMenu();
-    });
-  });
-
-  // ▶ Suivant
-  if (tpPage < totalPages - 1) addTpBtn("tp-next", "▶", () => { tpPage += 1; drawTpButtons(); });
-
-  // ✖ Fermer
-  addTpBtn("tp-close", "✖", () => closeTeleportMenu());
-
-  L.log(`TP menu page ${tpPage + 1}/${totalPages}`);
+  addTpBtn("tp-close", "✖", closeTeleportMenu);
 }
 
 function addTpBtn(id: string, label: string, cb: () => void) {
-  tpButtonIds.push(id);
-  const ab: any = (WA.ui as any)?.actionBar;
-  try { ab.addButton({ id, label, callback: cb, clickCallback: cb }); } catch (e) {
-    L.err(`Ajout bouton ${id} impossible:`, e);
-  }
+  if (addActionButton(id, label, cb, false)) tpIds.push(id);
 }
-function removeTpButtons() {
-  const ab: any = (WA.ui as any)?.actionBar;
-  tpButtonIds.forEach((id) => { try { ab.removeButton?.(id); } catch {} });
-  tpButtonIds = [];
+function clearTpButtons() {
+  tpIds.forEach(id => removeActionButton(id));
+  tpIds = [];
 }
-
-export {};
