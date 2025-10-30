@@ -7,7 +7,7 @@ const L = {
 };
 
 /* ============ CONFIG ============ */
-const MAP_URL = "/@/ynov-1733302243/ynov_adventure/new-map";
+const MAP_URL = "/@/ynov-1733302243/ynov_adventure/e-jpo";
 const ZONES: { id: string; label: string }[] = [
   { id: "#TPA-IA",     label: "IA" },
   { id: "#TPAINFO",    label: "Informatique" },
@@ -41,7 +41,6 @@ function addButtonSafe(opts: {
     ab.addButton(base);
     L.log(`Button added: ${opts.id} (with style if supported)`);
   } catch (e) {
-    // Retente sans style
     try {
       ab.addButton({ id: opts.id, label: opts.label, callback: opts.onClick, clickCallback: opts.onClick });
       L.log(`Button added: ${opts.id} (fallback no-style)`);
@@ -58,19 +57,7 @@ function removeButtonSafe(id: string) {
 /* ======= ÉTAT TÉLÉPORTATION ======= */
 const MAIN_TP_BTN_ID = "teleport-btn";
 let tpOpen = false;
-let tpPage = 0;
 let tpButtonIds: string[] = [];
-
-// Pagination : 1/pg sur mobile, 3/pg sur desktop
-function computePerPage(): number {
-  try {
-    if (/Mobi|Android/i.test(navigator.userAgent)) return 1;
-    if (typeof window !== "undefined" && window.innerWidth < 768) return 1;
-    if (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) return 1;
-  } catch {}
-  return 3;
-}
-let PER_PAGE = computePerPage();
 
 /* ============ INIT ============ */
 WA.onInit().then(() => {
@@ -88,15 +75,14 @@ WA.onInit().then(() => {
   L.log("Buttons added");
 }).catch((e) => L.err("onInit error:", e));
 
-/* ============ TÉLÉPORTATION (action bar paginée) ============ */
+/* ============ TÉLÉPORTATION (liste simple, sans pagination) ============ */
 function openTeleportMenu() {
   if (tpOpen) return;
   tpOpen = true;
 
+  // On enlève le bouton principal pendant l’ouverture du menu
   removeButtonSafe(MAIN_TP_BTN_ID);
 
-  tpPage = 0;
-  PER_PAGE = computePerPage();
   drawTpButtons();
 }
 
@@ -104,6 +90,7 @@ function closeTeleportMenu() {
   removeTpButtons();
   tpOpen = false;
 
+  // Ré-ajoute le bouton principal
   addButtonSafe({
     id: MAIN_TP_BTN_ID,
     label: "Téléportation",
@@ -116,26 +103,19 @@ function closeTeleportMenu() {
 function drawTpButtons() {
   removeTpButtons();
 
-  const totalPages = Math.max(1, Math.ceil(ZONES.length / PER_PAGE));
-  tpPage = Math.max(0, Math.min(tpPage, totalPages - 1));
-
-  const start = tpPage * PER_PAGE;
-  const slice = ZONES.slice(start, start + PER_PAGE);
-
-  if (tpPage > 0) addTpBtn("tp-prev", "◀", () => { tpPage -= 1; drawTpButtons(); });
-
-  slice.forEach((z, i) => {
-    addTpBtn(`tp-z-${start + i}`, z.label, () => {
+  // Ajoute tous les boutons de zones (sans pagination/adaptation)
+  ZONES.forEach((z, idx) => {
+    addTpBtn(`tp-z-${idx}`, z.label, () => {
       try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
+      // Referme le menu après TP
       closeTeleportMenu();
     });
   });
 
-  if (tpPage < totalPages - 1) addTpBtn("tp-next", "▶", () => { tpPage += 1; drawTpButtons(); });
-
+  // ✖ Fermer
   addTpBtn("tp-close", "✖", () => closeTeleportMenu());
 
-  L.log(`TP menu page ${tpPage + 1}/${totalPages}, PER_PAGE=${PER_PAGE}`);
+  L.log(`TP menu ouvert avec ${ZONES.length} zones (+ fermer).`);
 }
 
 function addTpBtn(id: string, label: string, cb: () => void) {
