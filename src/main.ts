@@ -21,6 +21,21 @@ const ZONES: { id: string; label: string }[] = [
 ];
 
 /* ============ HELPERS ============ */
+// Attend que WA.ui.actionBar soit disponible (polling max ~5s)
+function waitForActionBar(maxTries = 25, delayMs = 200): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let tries = 0;
+    const tick = () => {
+      const ab: any = (WA.ui as any)?.actionBar;
+      if (ab?.addButton) return resolve();
+      tries++;
+      if (tries >= maxTries) return reject(new Error("actionBar indisponible"));
+      setTimeout(tick, delayMs);
+    };
+    tick();
+  });
+}
+
 function addButtonSafe(opts: {
   id: string;
   label: string;
@@ -33,6 +48,8 @@ function addButtonSafe(opts: {
     L.err("actionBar.addButton introuvable");
     return;
   }
+  // Évite les doublons si le script est rechargé
+  try { ab.removeButton?.(opts.id); } catch {}
 
   const base: any = {
     id: opts.id,
@@ -45,7 +62,9 @@ function addButtonSafe(opts: {
     if (opts.bgColor !== undefined) base.bgColor = opts.bgColor;
     if (opts.isGradient !== undefined) base.isGradient = opts.isGradient;
     ab.addButton(base);
-  } catch {
+    L.log(`Bouton ajouté: ${opts.id}`);
+  } catch (e) {
+    // Fallback sans style si l’instance ne supporte pas les props
     try {
       ab.addButton({
         id: opts.id,
@@ -53,8 +72,9 @@ function addButtonSafe(opts: {
         callback: opts.onClick,
         clickCallback: opts.onClick,
       });
-    } catch (e) {
-      L.err(`Impossible d'ajouter le bouton ${opts.id}:`, e);
+      L.log(`Bouton ajouté (fallback): ${opts.id}`);
+    } catch (e2) {
+      L.err(`Échec ajout bouton ${opts.id}:`, e2);
     }
   }
 }
@@ -66,6 +86,7 @@ let tpButtonIds: string[] = [];
 
 /* ============ INIT ============ */
 WA.onInit()
+  .then(() => waitForActionBar())
   .then(() => {
     addButtonSafe({
       id: MAIN_TP_BTN_ID,
@@ -74,8 +95,9 @@ WA.onInit()
       isGradient: true,
       onClick: () => toggleTeleportMenu(),
     });
+    L.log("Action bar prête, bouton Téléportation ajouté.");
   })
-  .catch((e) => L.err("onInit error:", e));
+  .catch((e) => L.err("Init UI/actionBar error:", e));
 
 /* ============ TÉLÉPORTATION (sans pagination, WA gère l’affichage) ============ */
 function toggleTeleportMenu() {
@@ -126,9 +148,7 @@ function addTpBtn(id: string, label: string, cb: () => void) {
 function removeTpButtons() {
   const ab: any = (WA.ui as any)?.actionBar;
   tpButtonIds.forEach((id) => {
-    try {
-      ab.removeButton?.(id);
-    } catch {}
+    try { ab.removeButton?.(id); } catch {}
   });
   tpButtonIds = [];
 }
