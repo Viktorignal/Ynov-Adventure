@@ -20,8 +20,7 @@ const ZONES: { id: string; label: string }[] = [
   { id: "#TPAHUB", label: "Accueil" },
 ];
 
-/* ============ RÉGLAGE SIMPLE ============
-   Pagination fixe et stable (3 éléments par page) */
+/* ============ RÉGLAGE SIMPLE ============ */
 const PER_PAGE = 3;
 
 /* ============ ACTION BAR HELPERS ============ */
@@ -51,7 +50,7 @@ let tpIds: string[] = [];
 
 /* ============ INIT ============ */
 WA.onInit().then(() => {
-  // 1) Bouton principal dans l’action bar (avec several retries au cas où l’UI soit lente)
+  // Ajout du bouton principal
   let tries = 0; const max = 20;
   const tryAdd = () => {
     tries++;
@@ -62,26 +61,24 @@ WA.onInit().then(() => {
   };
   tryAdd();
 
-  // 2) (Optionnel) menu des paramètres — n’affecte pas l’action bar si indisponible
+  // Menu “Paramètres” (optionnel)
   try {
-    const unregTp = WA.ui.registerMenuCommand?.("Téléportation", openTeleportMenu);
-    void unregTp; // on n’a pas besoin de le stocker
-    ZONES.forEach(z => WA.ui.registerMenuCommand?.(z.label, () => {
-      try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
-    }));
+    WA.ui.registerMenuCommand?.("Téléportation", openTeleportMenu);
+    ZONES.forEach(z =>
+      WA.ui.registerMenuCommand?.(z.label, () => {
+        try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
+      })
+    );
   } catch (e) {
     L.log("registerMenuCommand non disponible — pas bloquant.");
   }
 }).catch(e => L.err("onInit error:", e));
 
-/* ============ TÉLÉPORTATION (paginé avec flèches) ============ */
+/* ============ TÉLÉPORTATION PAGINÉE ============ */
 function openTeleportMenu() {
   if (tpOpen) return;
   tpOpen = true;
-
-  // On enlève le bouton principal pour libérer de la place
   removeActionButton(MAIN_TP_BTN_ID);
-
   tpPage = 0;
   drawTpPage();
 }
@@ -89,7 +86,6 @@ function openTeleportMenu() {
 function closeTeleportMenu() {
   clearTpButtons();
   tpOpen = false;
-  // On remet le bouton principal
   addActionButton(MAIN_TP_BTN_ID, "Téléportation", openTeleportMenu, true);
 }
 
@@ -105,7 +101,7 @@ function drawTpPage() {
   if (tpPage > 0) addTpBtn("tp-prev", "◀", () => { tpPage--; drawTpPage(); });
   slice.forEach((z, i) => addTpBtn(`tp-${start + i}`, z.label, () => {
     try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
-    closeTeleportMenu(); // refermer après TP
+    closeTeleportMenu();
   }));
   if (tpPage < total - 1) addTpBtn("tp-next", "▶", () => { tpPage++; drawTpPage(); });
 
@@ -119,3 +115,6 @@ function clearTpButtons() {
   tpIds.forEach(id => removeActionButton(id));
   tpIds = [];
 }
+
+/* ✅ Pour le mode isolatedModules */
+export {};
