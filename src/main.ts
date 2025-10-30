@@ -7,7 +7,7 @@ const L = {
 };
 
 /* ============ CONFIG ============ */
-const MAP_URL = "/@/ynov-1733302243/ynov_adventure/new-map";
+const MAP_URL = "/@/ynov-1733302243/ynov_adventure/e-jpo";
 const ZONES: { id: string; label: string }[] = [
   { id: "#TPA-IA",     label: "IA" },
   { id: "#TPAINFO",    label: "Informatique" },
@@ -77,21 +77,21 @@ WA.onInit().then(() => {
   L.log("onInit OK");
 
   // Bouton CANDIDATER — nouvel onglet, couleur si possible
-  addButtonSafe({
-    id: "candidater-btn",
-    label: "Candidater",
-    bgColor: "#edb911",
-    isGradient: true,
-    onClick: () => {
-      try {
+ // addButtonSafe({
+  //  id: "candidater-btn",
+  //  label: "Candidater",
+   // bgColor: "#edb911",
+   // isGradient: true,
+   // onClick: () => {
+    //  try {
         // @ts-ignore selon version
-        if (WA?.nav?.openTab) WA.nav.openTab("https://www.ynov.com/candidature");
-        else window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
-      } catch {
-        window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
-      }
-    },
-  });
+     //   if (WA?.nav?.openTab) WA.nav.openTab("https://www.ynov.com/candidature");
+     //   else window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
+    //  } catch {
+    //    window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
+   //   }
+  //  },
+ // });
 
   // Bouton TÉLÉPORTATION (disparaît quand le menu est ouvert)
   addButtonSafe({
