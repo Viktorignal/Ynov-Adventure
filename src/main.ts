@@ -76,23 +76,6 @@ let PER_PAGE = computePerPage();
 WA.onInit().then(() => {
   L.log("onInit OK");
 
-  // Bouton CANDIDATER — nouvel onglet, couleur si possible
- // addButtonSafe({
-  //  id: "candidater-btn",
-  //  label: "Candidater",
-   // bgColor: "#edb911",
-   // isGradient: true,
-   // onClick: () => {
-    //  try {
-        // @ts-ignore selon version
-     //   if (WA?.nav?.openTab) WA.nav.openTab("https://www.ynov.com/candidature");
-     //   else window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
-    //  } catch {
-    //    window.open("https://www.ynov.com/candidature", "_blank", "noopener,noreferrer");
-   //   }
-  //  },
- // });
-
   // Bouton TÉLÉPORTATION (disparaît quand le menu est ouvert)
   addButtonSafe({
     id: MAIN_TP_BTN_ID,
@@ -110,7 +93,6 @@ function openTeleportMenu() {
   if (tpOpen) return;
   tpOpen = true;
 
-  // “Soit l’un soit l’autre” : on enlève le bouton principal
   removeButtonSafe(MAIN_TP_BTN_ID);
 
   tpPage = 0;
@@ -122,7 +104,6 @@ function closeTeleportMenu() {
   removeTpButtons();
   tpOpen = false;
 
-  // Ré-ajoute le bouton principal
   addButtonSafe({
     id: MAIN_TP_BTN_ID,
     label: "Téléportation",
@@ -141,22 +122,17 @@ function drawTpButtons() {
   const start = tpPage * PER_PAGE;
   const slice = ZONES.slice(start, start + PER_PAGE);
 
-  // ◀ Précédent (si pas première page)
   if (tpPage > 0) addTpBtn("tp-prev", "◀", () => { tpPage -= 1; drawTpButtons(); });
 
-  // Zones de la page
   slice.forEach((z, i) => {
     addTpBtn(`tp-z-${start + i}`, z.label, () => {
       try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
-      // Referme le menu après TP (si tu veux le garder, remplace par drawTpButtons();)
       closeTeleportMenu();
     });
   });
 
-  // ▶ Suivant (si pas dernière page)
   if (tpPage < totalPages - 1) addTpBtn("tp-next", "▶", () => { tpPage += 1; drawTpButtons(); });
 
-  // ✖ Fermer
   addTpBtn("tp-close", "✖", () => closeTeleportMenu());
 
   L.log(`TP menu page ${tpPage + 1}/${totalPages}, PER_PAGE=${PER_PAGE}`);
