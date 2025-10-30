@@ -7,7 +7,7 @@ const L = {
 };
 
 /* ============ CONFIG ============ */
-const MAP_URL = "/@/ynov-1733302243/ynov_adventure/new-map";
+const MAP_URL = "/@/ynov-1733302243/ynov_adventure/e-jpo";
 const ZONES: { id: string; label: string }[] = [
   { id: "#TPA-IA",     label: "IA" },
   { id: "#TPAINFO",    label: "Informatique" },
@@ -42,10 +42,6 @@ function addButtonSafe(opts: {
     try { ab.addButton({ id: opts.id, label: opts.label, callback: opts.onClick, clickCallback: opts.onClick }); } catch {}
   }
 }
-function removeButtonSafe(id: string) {
-  const ab: any = (WA.ui as any)?.actionBar;
-  try { ab?.removeButton?.(id); } catch {}
-}
 
 /* ======= ÉTAT TÉLÉPORTATION ======= */
 const MAIN_TP_BTN_ID = "teleport-btn";
@@ -71,39 +67,3 @@ function toggleTeleportMenu() {
 
 function openTeleportMenu() {
   if (tpOpen) return;
-  tpOpen = true;
-  drawTpButtons();
-}
-
-function closeTeleportMenu() {
-  removeTpButtons();
-  tpOpen = false;
-}
-
-function drawTpButtons() {
-  removeTpButtons();
-
-  // Tous les boutons de zones (aucune pagination ni logique mobile)
-  ZONES.forEach((z, idx) => {
-    addTpBtn(`tp-z-${idx}`, z.label, () => {
-      try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
-      closeTeleportMenu();
-    });
-  });
-
-  // ✖ Fermer
-  addTpBtn("tp-close", "✖", () => closeTeleportMenu());
-}
-
-function addTpBtn(id: string, label: string, cb: () => void) {
-  tpButtonIds.push(id);
-  const ab: any = (WA.ui as any)?.actionBar;
-  try { ab.addButton({ id, label, callback: cb, clickCallback: cb }); } catch {}
-}
-function removeTpButtons() {
-  const ab: any = (WA.ui as any)?.actionBar;
-  tpButtonIds.forEach((id) => { try { ab.removeButton?.(id); } catch {} });
-  tpButtonIds = [];
-}
-
-export {};
