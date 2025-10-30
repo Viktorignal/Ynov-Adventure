@@ -7,7 +7,7 @@ const L = {
 };
 
 /* ============ CONFIG ============ */
-const MAP_URL = "/@/ynov-1733302243/ynov_adventure/e-jpo";
+const MAP_URL = "/@/ynov-1733302243/ynov_adventure/new-map";
 const ZONES: { id: string; label: string }[] = [
   { id: "#TPA-IA",     label: "IA" },
   { id: "#TPAINFO",    label: "Informatique" },
