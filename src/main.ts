@@ -7,7 +7,7 @@ const L = {
 };
 
 /* ============ CONFIG ============ */
-const MAP_URL = "/@/ynov-1733302243/ynov_adventure/e-jpo";
+const MAP_URL = "/@/ynov-1733302243/ynov_adventure/new-map";
 const ZONES: { id: string; label: string }[] = [
   { id: "#TPA-IA",     label: "IA" },
   { id: "#TPAINFO",    label: "Informatique" },
@@ -21,7 +21,6 @@ const ZONES: { id: string; label: string }[] = [
 ];
 
 /* ============ HELPERS ============ */
-/** Ajoute un bouton. Si l’instance refuse la couleur/gradient, on retente sans style. */
 function addButtonSafe(opts: {
   id: string;
   label: string;
@@ -39,14 +38,8 @@ function addButtonSafe(opts: {
     if (opts.bgColor !== undefined) base.bgColor = opts.bgColor;
     if (opts.isGradient !== undefined) base.isGradient = opts.isGradient;
     ab.addButton(base);
-    L.log(`Button added: ${opts.id} (with style if supported)`);
-  } catch (e) {
-    try {
-      ab.addButton({ id: opts.id, label: opts.label, callback: opts.onClick, clickCallback: opts.onClick });
-      L.log(`Button added: ${opts.id} (fallback no-style)`);
-    } catch (e2) {
-      L.err(`Failed to add button ${opts.id}:`, e2);
-    }
+  } catch {
+    try { ab.addButton({ id: opts.id, label: opts.label, callback: opts.onClick, clickCallback: opts.onClick }); } catch {}
   }
 }
 function removeButtonSafe(id: string) {
@@ -61,71 +54,51 @@ let tpButtonIds: string[] = [];
 
 /* ============ INIT ============ */
 WA.onInit().then(() => {
-  L.log("onInit OK");
-
-  // Bouton TÉLÉPORTATION (disparaît quand le menu est ouvert)
   addButtonSafe({
     id: MAIN_TP_BTN_ID,
     label: "Téléportation",
     bgColor: "#2ea7ff",
     isGradient: true,
-    onClick: () => openTeleportMenu(),
+    onClick: () => toggleTeleportMenu(),
   });
-
-  L.log("Buttons added");
 }).catch((e) => L.err("onInit error:", e));
 
-/* ============ TÉLÉPORTATION (liste simple, sans pagination) ============ */
+/* ============ TÉLÉPORTATION (sans pagination, WA gère l’affichage) ============ */
+function toggleTeleportMenu() {
+  if (tpOpen) closeTeleportMenu();
+  else openTeleportMenu();
+}
+
 function openTeleportMenu() {
   if (tpOpen) return;
   tpOpen = true;
-
-  // On enlève le bouton principal pendant l’ouverture du menu
-  removeButtonSafe(MAIN_TP_BTN_ID);
-
   drawTpButtons();
 }
 
 function closeTeleportMenu() {
   removeTpButtons();
   tpOpen = false;
-
-  // Ré-ajoute le bouton principal
-  addButtonSafe({
-    id: MAIN_TP_BTN_ID,
-    label: "Téléportation",
-    bgColor: "#2ea7ff",
-    isGradient: true,
-    onClick: () => openTeleportMenu(),
-  });
 }
 
 function drawTpButtons() {
   removeTpButtons();
 
-  // Ajoute tous les boutons de zones (sans pagination/adaptation)
+  // Tous les boutons de zones (aucune pagination ni logique mobile)
   ZONES.forEach((z, idx) => {
     addTpBtn(`tp-z-${idx}`, z.label, () => {
       try { WA.nav.goToRoom(MAP_URL + z.id); } catch (e) { L.err("goToRoom error:", e); }
-      // Referme le menu après TP
       closeTeleportMenu();
     });
   });
 
   // ✖ Fermer
   addTpBtn("tp-close", "✖", () => closeTeleportMenu());
-
-  L.log(`TP menu ouvert avec ${ZONES.length} zones (+ fermer).`);
 }
 
 function addTpBtn(id: string, label: string, cb: () => void) {
   tpButtonIds.push(id);
   const ab: any = (WA.ui as any)?.actionBar;
-  try {
-    ab.addButton({ id, label, callback: cb, clickCallback: cb });
-  } catch (e) {
-    L.err(`Failed to add TP sub-button ${id}:`, e);
-  }
+  try { ab.addButton({ id, label, callback: cb, clickCallback: cb }); } catch {}
 }
 function removeTpButtons() {
   const ab: any = (WA.ui as any)?.actionBar;
