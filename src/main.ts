@@ -72,6 +72,11 @@ WA.onInit().then(() => {
   } catch (e) {
     L.log("registerMenuCommand non disponible — pas bloquant.");
   }
+
+  // Open the form after few seconds
+  setTimeout(() => {
+    openInitForm();
+  }, 3000);
 }).catch(e => L.err("onInit error:", e));
 
 /* ============ TÉLÉPORTATION PAGINÉE ============ */
@@ -114,6 +119,41 @@ function addTpBtn(id: string, label: string, cb: () => void) {
 function clearTpButtons() {
   tpIds.forEach(id => removeActionButton(id));
   tpIds = [];
+}
+
+// ============ FORMULAIRE DE PRÉSENTATION ============
+function openInitForm(){
+  // Check if the form is already done
+  const formDone = WA.player.state.hasVariable("ynov_adventure_form_done");
+  if (formDone) {
+    L.log("Form already done");
+    return;
+  }
+  
+  L.log("Form opened");
+
+  /// Init the variables form variables
+  WA.player.state.saveVariable("ynov_adventure_form_done", false);
+
+  // Disable user control
+  WA.controls.disablePlayerControls();
+
+  // Open the form
+  // @ts-ignore: UI API is not typed
+  WA.ui.modal.openModal({
+    title: "Formulaire de présentation",
+    allowApi: true,
+    position: "center",
+    allow: null,
+    src: "https://blocksurvey.io/xT1hdkDrQ7WQWPssxz04kA?v=o",
+    // @ts-ignore : UI API is not typed
+    allowFullScreen: true,
+    // @ts-ignore: UI API is not typed
+    closable: false,
+  }, ()=> {
+    L.log("Form closed");
+    WA.controls.restorePlayerControls();
+  });
 }
 
 /* ✅ Pour le mode isolatedModules */
