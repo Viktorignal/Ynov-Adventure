@@ -145,7 +145,7 @@ function openInitForm(){
     allowApi: true,
     position: "center",
     allow: null,
-    src: "https://blocksurvey.io/PjQCcb1EQhKO8TJqwyy_BA?v=o",
+    src: "https://blocksurvey.io/bienvenue-dans-ynov-adventure-PjQCcb1EQhKO8TJqwyy_BA?v=l",
     // @ts-ignore : UI API is not typed
     allowFullScreen: true,
     // @ts-ignore: UI API is not typed
