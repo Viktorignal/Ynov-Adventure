@@ -138,15 +138,7 @@ function openInitForm(){
   // Disable user control
   WA.controls.disablePlayerControls();
 
-  // Open the form
-  // @ts-ignore: UI API is not typed
-  WA.ui.modal.openModal({
-    title: "Formulaire de présentation",
-    allowApi: true,
-    position: "center",
-    allow: null,
-    src: "https://blocksurvey.io/bienvenue-dans-ynov-adventure-PjQCcb1EQhKO8TJqwyy_BA?v=l",
-    // @ts-ignore : UI API is not typed
+
     allowFullScreen: true,
     // @ts-ignore: UI API is not typed
     closable: false,
